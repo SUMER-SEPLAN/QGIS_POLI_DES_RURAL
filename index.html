@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política Desenv. Rural</title>
+    <link rel="icon" href="icones/icones_menu/dados_pi.png" type="image/png">
+    <link rel="stylesheet" href="css/layout.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.js"></script>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <button id="menu-toggle" class="btn-menu">
+                <img src="icones/icones_menu/legenda.svg" alt="Menu">
+            </button>
+        </div>
+        <div class="topbar-right">
+            <img src="icones/icones_menu/logo_pi.png" alt="Piauí" class="logo-estado">
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div id="sidebar-container" class="sidebar-container closed">
+            <aside class="icon-bar">
+                <div class="icon-item active" data-target="panel-obras" title="Detalhes">
+                    <img src="icones/icones_menu/des_rural.png" alt="Detalhes">
+                </div>
+                <div class="icon-item" data-target="panel-filtros" title="Filtros">
+                    <img src="icones/icones_menu/filtro.png" alt="Filtros">
+                </div>
+                <div class="icon-item" data-target="panel-legendas" title="Legendas">
+                    <img src="icones/icones_menu/legendas.png" alt="Legendas">
+                </div>
+                <div class="icon-item" data-target="panel-sobre" title="Sobre">
+                    <img src="icones/icones_menu/informacao.png" alt="Sobre">
+                </div>
+            </aside>
+
+            <div class="content-panel">
+                <div id="panel-obras" class="panel-section active">
+                    <h3>Detalhes da Política</h3>
+                    <div id="conteudo-detalhes">
+                        <p class="placeholder-text">Selecione um ponto no mapa para ver os indicadores.</p>
+                    </div>
+                </div>
+
+                <div id="panel-filtros" class="panel-section">
+                    <h3>Filtros de Pesquisa</h3>
+                    <form id="form-filtros" onsubmit="event.preventDefault();">
+                        <div class="filter-group"><label>Município</label><select id="filtro-municipio" multiple></select></div>
+                        <div class="filter-group"><label>Território de Desenvolvimento</label><select id="filtro-territorio" multiple></select></div>
+                        <div class="filter-group"><label>Órgão Executor</label><select id="filtro-orgao" multiple></select></div>
+                        <div class="filter-group"><label>Status Atual</label><select id="filtro-status" multiple></select></div>
+                        <div class="filter-group"><label>Região Intermediária</label><select id="filtro-intermediaria" multiple></select></div>
+                        <div class="filter-group"><label>Região Imediata</label><select id="filtro-imediata" multiple></select></div>
+                        <div class="filter-group"><label>Produto</label><select id="filtro-produto" multiple></select></div>
+                        <div class="filter-group"><label>Tipo de Produto</label><select id="filtro-tipo-produto" multiple></select></div>
+                        <div class="filter-group"><label>Tipo de Localização</label><select id="filtro-tipo-localizacao" multiple></select></div>
+
+                        <div class="filter-actions">
+                            <button type="button" class="btn-limpar" onclick="limparTodosFiltros()">Limpar</button>
+                            <button type="button" class="btn-aplicar" onclick="executarFiltroIframe()">Filtrar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="panel-legendas" class="panel-section">
+    <h3>Legendas</h3>
+    <div class="legenda-grupo">
+        <h4>SITUAÇÃO</h4>
+        <div class="legenda-item">
+            <img src="icones/icones_legendas/contratado.png" alt="Contratado">
+            <span>Contratado</span>
+        </div>
+        <div class="legenda-item">
+            <img src="icones/icones_legendas/em_execucao.png" alt="Em Execução">
+            <span>Em Execução</span>
+        </div>
+        <div class="legenda-item">
+            <img src="icones/icones_legendas/concluido.png" alt="Concluído">
+            <span>Concluído</span>
+        </div>
+    </div>
+</div>
+
+                <div id="panel-sobre" class="panel-section">
+                    <h3>Sobre a Plataforma</h3>
+                    <p>O <strong>Mapa de Política de Desenvolvimento Rural</strong> é um atlas interativo para o monitoramento dos programas sob supervisão da <strong>SUTEF</strong>.</p>
+                    <p style="margin-top: 10px;">Este grupo de apoio estrutura os dados georreferenciados para facilitar a gestão estratégica de programas fundamentais para o estado.</p>
+                    
+                    <h4 style="margin-top: 20px; color: #0352AA;">Programas Monitorados:</h4>
+                    <ul class="lista-sobre">
+                        <li><strong>📍 PSI:</strong> Projeto de Sustentabilidade Hídrica.</li>
+                        <li><strong>📍 Pilares:</strong> Fortalecimento da agricultura familiar.</li>
+                        <li><strong>📍 Sertão Vivo:</strong> Resiliência climática e produtiva.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="mobile-overlay" class="mobile-overlay"></div>
+
+        <div class="map-wrapper">
+            <iframe src="mapa_politica_desenvolvimento_rural.html" frameborder="0" id="map-frame"></iframe>
+            <div class="layer-switcher">
+                <button id="btn-mapa" class="layer-btn active" onclick="mudarBase('mapa')">Mapa</button>
+                <button id="btn-satelite" class="layer-btn" onclick="mudarBase('satelite')">Satélite</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONTROLE DA INTERFACE (SIDEBAR) ---
+        const toggleBtn = document.getElementById('menu-toggle');
+        const sidebarContainer = document.getElementById('sidebar-container');
+        const iconItems = document.querySelectorAll('.icon-item');
+        const panels = document.querySelectorAll('.panel-section');
+
+        toggleBtn.addEventListener('click', () => sidebarContainer.classList.toggle('closed'));
+
+        iconItems.forEach(item => {
+            item.addEventListener('click', () => {
+                iconItems.forEach(i => i.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+                item.classList.add('active');
+                document.getElementById(item.getAttribute('data-target')).classList.add('active');
+                sidebarContainer.classList.remove('closed');
+            });
+        });
+
+        // --- 2. FUNÇÃO DE FILTRAGEM ---
+        function executarFiltroIframe() {
+            const iframe = document.getElementById('map-frame');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.parent.aplicarFiltros) {
+                iframe.contentWindow.parent.aplicarFiltros();
+            }
+        }
+
+        // --- 3. INICIALIZAÇÃO DOS FILTROS (SLIM SELECT) ---
+        window.selectsInstances = {};
+        window.iniciarSlimSelect = function() {
+            if (typeof SlimSelect === 'undefined') return setTimeout(window.iniciarSlimSelect, 100);
+
+            const ids = [
+                'filtro-municipio', 'filtro-territorio', 'filtro-orgao', 'filtro-status',
+                'filtro-intermediaria', 'filtro-imediata', 'filtro-produto', 
+                'filtro-tipo-produto', 'filtro-tipo-localizacao'
+            ];
+
+            ids.forEach(id => {
+                if (window.selectsInstances[id]) window.selectsInstances[id].destroy();
+                const el = document.getElementById(id);
+                if (el) {
+                    window.selectsInstances[id] = new SlimSelect({
+                        select: '#' + id,
+                        placeholder: 'Selecione...',
+                        searchText: 'Nenhum resultado',
+                        closeOnSelect: false
+                    });
+                }
+            });
+        };
+
+        // --- 4. ALTERNAR CAMADAS DO MAPA ---
+        function mudarBase(tipo) {
+            document.querySelectorAll('.layer-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + tipo).classList.add('active');
+            const iframe = document.getElementById('map-frame');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.trocarCamadaBase) {
+                iframe.contentWindow.trocarCamadaBase(tipo);
+            }
+        }
+        function limparTodosFiltros() {
+    // 1. Limpa as seleções visuais do SlimSelect
+    Object.keys(window.selectsInstances).forEach(id => {
+        window.selectsInstances[id].set([]); // Define a seleção como vazia
+    });
+
+    // 2. Avisa o mapa para renderizar todos os dados originais
+    const iframe = document.getElementById('map-frame');
+    if (iframe && iframe.contentWindow && iframe.contentWindow.dadosCompletos) {
+        // Chama a função de renderizar pontos do script.js passando os dados totais
+        iframe.contentWindow.renderizarPontos(iframe.contentWindow.dadosCompletos);
+    }
+}
+    </script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+/* =========================================
+   1. RESET E ESTRUTURA BÁSICA
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body, html {
+    height: 100%;
+    overflow: hidden; /* Impede rolagem na página principal */
+}
+
+/* =========================================
+   2. BARRA SUPERIOR (TOPBAR)
+   ========================================= */
+.topbar {
+    width: 100%;
+    height: 70px; /* Altura padrão Gov */
+    background-color: #0352AA; /* Azul do tema */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    z-index: 2000 !important; /* Sempre no topo */
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-menu {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-menu:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-menu img {
+    width: 28px;
+    height: 28px;
+    filter: brightness(0) invert(1); /* Deixa ícone branco */
+}
+
+.logo-estado {
+    height: 42px;
+    object-fit: contain;
+}
+
+/* =========================================
+   3. LAYOUT PRINCIPAL
+   ========================================= */
+.main-container {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 70px); /* Altura total menos a barra */
+}
+
+/* --- SIDEBAR (MENU LATERAL) --- */
+.sidebar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    display: flex;
+    z-index: 1600 !important; /* Acima do mapa e dos botões de camada */
+    transition: transform 0.3s ease-in-out;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.15);
+}
+
+/* Estado Fechado */
+.sidebar-container.closed {
+    transform: translateX(-100%);
+}
+
+/* 1. Faixa Azul (Ícones) */
+.icon-bar {
+    width: 60px;
+    background-color: #0352AA;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
+
+.icon-item {
+    width: 100%;
+    padding: 15px 0;
+    display: flex;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-left: 4px solid transparent;
+}
+
+.icon-item img {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-item:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.icon-item.active {
+    background-color: #024491;
+    border-left: 4px solid #fff;
+}
+
+/* 2. Painel Branco (Conteúdo) */
+.content-panel {
+    width: 300px;
+    background-color: white;
+    padding: 20px;
+    overflow-y: auto; /* Permite rolar o conteúdo */
+}
+
+.panel-section {
+    display: none;
+}
+
+.panel-section.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+.panel-section h3 {
+    color: #0352AA;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   4. ÁREA DO MAPA (IFRAME)
+   ========================================= */
+.map-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative; /* Para posicionar os botões absolutos dentro */
+}
+
+iframe {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: none;
+}
+
+/* =========================================
+   5. FILTROS (ESTILO FORMULÁRIO)
+   ========================================= */
+#panel-filtros {
+    padding-bottom: 80px;
+}
+
+.filter-group {
+    margin-bottom: 15px;
+}
+
+.filter-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.filter-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 25px;
+    gap: 10px;
+}
+
+.filter-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+}
+
+.btn-limpar {
+    background-color: #fff;
+    border: 1px solid #ccc !important;
+    color: #666;
+}
+.btn-limpar:hover { background-color: #f9f9f9; }
+
+.btn-aplicar {
+    background-color: #0352AA;
+    color: white;
+}
+.btn-aplicar:hover { background-color: #023e8a; }
+
+/* =========================================
+   6. LEGENDAS E SOBRE (ESTILO LISTAS)
+   ========================================= */
+.legenda-grupo {
+    margin-bottom: 25px;
+}
+
+.legenda-grupo h4 {
+    color: #999;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+/* Item da Legenda (Sem Hover, Alinhado) */
+.legenda-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 5px;
+    border-radius: 4px;
+    cursor: default !important; /* Mouse normal */
+    text-decoration: none !important;
+}
+
+.legenda-item:hover {
+    background-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.legenda-item img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    margin-right: 12px;
+    display: block;
+}
+
+.legenda-item span {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+/* Lista do Sobre */
+.lista-sobre {
+    list-style: none;
+    padding: 0;
+    margin-top: 10px;
+}
+
+.lista-sobre li {
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #555;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    border-left: 3px solid #0352AA;
+}
+
+.lista-sobre li strong {
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* =========================================
+   7. SELETOR DE CAMADAS (MAPA/SATÉLITE)
+   ========================================= */
+.layer-switcher {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1100 !important; /* Menor que menu (1600), maior que mapa (0) */
+    background-color: white;
+    padding: 5px;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    display: flex;
+    gap: 5px;
+}
+
+.layer-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.layer-btn:hover {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.layer-btn.active {
+    background-color: #0352AA;
+    color: white;
+    box-shadow: 0 2px 5px rgba(3, 82, 170, 0.3);
+}
+
+/* =========================================
+   8. MOBILE OVERLAY (FECHAR MENU AO CLICAR FORA)
+   ========================================= */
+.mobile-overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 1550; /* Abaixo do menu (1600) mas acima do resto */
+    cursor: pointer;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 600px) {
+    .titles h1 { font-size: 14px; }
+    .titles h2 { display: none; }
+    .sidebar { width: 80%; max-width: 300px; }
+    
+    /* Só mostra o overlay se o menu NÃO estiver fechado */
+    #sidebar-container:not(.closed) + .mobile-overlay {
+        display: block;
+    }
+}
+
+/* =========================================
+   9. ESTILO DOS CLUSTERS (BOLINHAS AZUIS)
+   ========================================= */
+/* Configuração Base da Bolinha */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+    background-clip: padding-box;
+    border-radius: 50%;
+}
+
+/* O Miolo da Bolinha */
+.marker-cluster div {
+    width: 30px;
+    height: 30px;
+    margin-left: 5px;
+    margin-top: 5px;
+    text-align: center;
+    border-radius: 50%;
+}
+
+/* 1. POUCOS PONTOS (< 10) -> AZUL CLARO */
+.marker-cluster-small {
+    background-color: rgba(181, 226, 255, 0.6) !important; /* Anel */
+}
+.marker-cluster-small div {
+    background-color: rgba(100, 181, 246, 0.9) !important; /* Miolo */
+}
+
+/* 2. MÉDIA QUANTIDADE (< 50) -> AZUL MÉDIO */
+.marker-cluster-medium {
+    background-color: rgba(100, 181, 246, 0.6) !important;
+}
+.marker-cluster-medium div {
+    background-color: rgba(33, 150, 243, 0.9) !important;
+}
+
+/* 3. MUITOS PONTOS (> 50) -> AZUL FORTE */
+.marker-cluster-large {
+    background-color: rgba(33, 150, 243, 0.6) !important;
+}
+.marker-cluster-large div {
+    background-color: rgba(3, 82, 170, 0.9) !important;
+}
+
+/* ESCONDER TEXTO/NÚMEROS (Garantia Absoluta) */
+.marker-cluster span {
+    display: none !important;
+}
+.marker-cluster div {
+    color: transparent !important;
+}
+
+/* --- ESTILO DOS DETALHES DA OBRA (SIDEBAR) --- */
+
+.detalhe-item {
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.detalhe-item strong {
+    display: block;
+    color: #0352AA;
+    font-size: 12px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.detalhe-item span {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.4;
+    display: block;
+}
+
+/* Barra de Progresso */
+.progress-container {
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 10px;
+    margin: 5px 0;
+    height: 15px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #28a745; /* Verde */
+    text-align: center;
+    line-height: 15px;
+    color: white;
+    font-size: 10px;
+    transition: width 0.5s ease-in-out;
+}
+
+/* Botão dentro do Popup */
+.btn-ver-mais {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #0352AA;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+    text-decoration: none;
+}
+
+.btn-ver-mais:hover {
+    background-color: #023e8a;
+}
+
+.placeholder-text {
+    color: #777;
+    font-style: italic;
+    text-align: center;
+    margin-top: 50px;
+}
+
+/* --- CORREÇÃO DO MINI MAPA E SCROLL --- */
+
+#mini-mapa-container {
+    width: 100% !important;
+    height: 350px !important;
+    background-color: white; 
+    border: 1px solid #eee;
+    border-radius: 8px;
+    
+    /* SEGREDOS PARA NÃO VAZAR */
+    position: relative !important; /* Mantém ele no fluxo do documento */
+    z-index: 1 !important;         /* Garante que não cubra o texto */
+    display: block;
+    margin-top: 15px;              /* Afasta do título */
+    margin-bottom: 20px;           /* Espaço no final */
+    box-sizing: border-box;        /* Garante que borda não aumente largura */
+    overflow: hidden;              /* Corta qualquer coisa que saia da caixa */
+}
+
+/* Título do Mapa */
+.detalhe-item strong {
+    display: block;
+    margin-bottom: 5px;
+    position: relative; /* Garante que o texto tenha sua própria camada */
+    z-index: 2;         /* Fica ACIMA do mapa */
+    background: white;  /* Opcional: Garante legibilidade */
+}
+
+/* Força o Leaflet a se comportar */
+.leaflet-container {
+    position: absolute !important; /* Dentro do container relativo */
+    top: 0; left: 0; right: 0; bottom: 0;
+    margin: 0 !important;
+    background: transparent !important;
+    outline: none !important;
+}
+
+/* Mata a rolagem horizontal do painel branco */
+.content-panel {
+    overflow-x: hidden !important;
+    padding-right: 5px; /* Espaço para a barra de rolagem não cobrir texto */
+}
