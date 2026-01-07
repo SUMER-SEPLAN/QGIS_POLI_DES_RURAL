@@ -3,12 +3,22 @@
 // =========================================
 const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSezDjypmlJ_3_JwIwGYlfJSvTwbl9bxVAWe-iq-ORDPOCmQ2giOJAz9NrKP8DZWmTBUzcaCLsGpyS_/pub?gid=1701973260&single=true&output=csv";
 
+// Limites geográficos (Bounds) do seu outro projeto
+var initialBounds = [[-18, -60], [10, -30]];
+if (window.innerWidth <= 600) {
+    initialBounds = [[-16, -62], [4, -23]];
+}
+
 // Configuração das Camadas de Base (Mapa e Satélite)
 const camadasBase = {
     "mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        maxZoom: 21,         // Zoom máximo permitido no mapa
+        maxNativeZoom: 19,   // Zoom real do servidor (impede a tela cinza ao dar zoom digital)
         attribution: '© OpenStreetMap | Dev: Lucas Mendes' 
     }),
     "satelite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21,         // Zoom máximo permitido no mapa
+        maxNativeZoom: 17,   // Esri geralmente tem tiles até o nível 18. Acima disso, ele amplia os pixels.
         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community | Dev: Lucas Mendes'
     })
 };
@@ -17,7 +27,9 @@ const map = L.map('map', {
     zoomControl: false,
     maxZoom: 21,
     minZoom: 6,
-    layers: [camadasBase.mapa] // Começa com o mapa padrão
+    maxBounds: initialBounds,      // Limita a área de navegação
+    maxBoundsViscosity: 1.0,        // Faz a borda ser "sólida"
+    layers: [camadasBase.mapa] 
 }).fitBounds([[-12.5, -45.5], [-2.5, -40.5]]);
 
 // Função global para trocar o mapa (chamada pelo index.html)
