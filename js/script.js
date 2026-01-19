@@ -11,10 +11,11 @@ const camadasBase = {
         maxNativeZoom: 19, 
         attribution: '© OpenStreetMap | Dev: Lucas Mendes' 
     }),
-    "satelite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    "satelite": L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         maxZoom: 21, 
-        maxNativeZoom: 17,
-        attribution: 'Tiles &copy; Esri | Dev: Lucas Mendes'
+        maxNativeZoom: 20,
+        subdomains: ['mt0','mt1','mt2','mt3'],
+        attribution: '© Google Satélite | Dev: Lucas Mendes'
     })
 };
 
@@ -27,9 +28,12 @@ const map = L.map('map', {
     layers: [camadasBase.mapa] 
 }).fitBounds([[-12.5, -45.5], [-2.5, -40.5]]);
 
+// Regra de Agrupamento baseada em Zoom
 window.clusterPontos = L.markerClusterGroup({ 
-    maxClusterRadius: 40, 
-    showCoverageOnHover: false 
+    maxClusterRadius: 25,          // Seu novo raio de 25 pixels
+    disableClusteringAtZoom: 40,    // A partir do zoom 16, os pontos não agrupam mais
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true        // Abre em teia se houver pontos sobrepostos no zoom máximo
 });
 map.addLayer(window.clusterPontos);
 
