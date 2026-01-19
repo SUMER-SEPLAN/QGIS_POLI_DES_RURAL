@@ -6,7 +6,8 @@
     <title>Política Desenv. Rural</title>
     <link rel="icon" href="icones/icones_menu/dados_pi.png" type="image/png">
     <link rel="stylesheet" href="css/layout.css">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.js"></script>
 </head>
@@ -51,15 +52,16 @@
                 <div id="panel-filtros" class="panel-section">
                     <h3>Filtros de Pesquisa</h3>
                     <form id="form-filtros" onsubmit="event.preventDefault();">
-                        <div class="filter-group"><label>Município</label><select id="filtro-municipio" multiple></select></div>
-                        <div class="filter-group"><label>Território de Desenvolvimento</label><select id="filtro-territorio" multiple></select></div>
                         <div class="filter-group"><label>Órgão Executor</label><select id="filtro-orgao" multiple></select></div>
-                        <div class="filter-group"><label>Status Atual</label><select id="filtro-status" multiple></select></div>
-                        <div class="filter-group"><label>Região Intermediária</label><select id="filtro-intermediaria" multiple></select></div>
-                        <div class="filter-group"><label>Região Imediata</label><select id="filtro-imediata" multiple></select></div>
-                        <div class="filter-group"><label>Produto</label><select id="filtro-produto" multiple></select></div>
-                        <div class="filter-group"><label>Tipo de Produto</label><select id="filtro-tipo-produto" multiple></select></div>
-                        <div class="filter-group"><label>Tipo de Localização</label><select id="filtro-tipo-localizacao" multiple></select></div>
+                        <div class="filter-group"><label>Ação</label><select id="filtro-acao" multiple></select></div>
+                        <div class="filter-group"><label>Tipo de Ação</label><select id="filtro-tipo-acao" multiple></select></div>
+                        <div class="filter-group"><label>Município</label><select id="filtro-municipio" multiple></select></div>
+                        <div class="filter-group"><label>Comunidade/ Localidade</label><select id="filtro-comunidade" multiple></select></div>
+                        <div class="filter-group"><label>Território</label><select id="filtro-territorio" multiple></select></div>
+                        <div class="filter-group"><label>Componente</label><select id="filtro-componente" multiple></select></div>
+                        <div class="filter-group"><label>Status da Ação</label><select id="filtro-status" multiple></select></div>
+                        <div class="filter-group"><label>Povos Tradicionais</label><select id="filtro-tradicional" multiple></select></div>
+                        <div class="filter-group"><label>Gênero</label><select id="filtro-genero" multiple></select></div>
 
                         <div class="filter-actions">
                             <button type="button" class="btn-limpar" onclick="limparTodosFiltros()">Limpar</button>
@@ -69,42 +71,41 @@
                 </div>
 
                 <div id="panel-legendas" class="panel-section">
-    <h3>Legendas</h3>
-    <div class="legenda-grupo">
-        <h4>SITUAÇÃO</h4>
-        <div class="legenda-item">
-            <img src="icones/icones_legendas/contratado.png" alt="Contratado">
-            <span>Contratado</span>
-        </div>
-        <div class="legenda-item">
-            <img src="icones/icones_legendas/em_execucao.png" alt="Em Execução">
-            <span>Em Execução</span>
-        </div>
-        <div class="legenda-item">
-            <img src="icones/icones_legendas/concluido.png" alt="Concluído">
-            <span>Concluído</span>
-        </div>
-    </div>
-</div>
+                    <h3>Legendas</h3>
+                    <div class="legenda-grupo">
+                        <h4>SITUAÇÃO</h4>
+                        <div class="legenda-item">
+                            <img src="icones/icones_legendas/nao_iniciado.png" alt="Contratado">
+                            <span>Não iniciado</span>
+                        </div>
+                        <div class="legenda-item">
+                            <img src="icones/icones_legendas/em_execucao.png" alt="Em Execução">
+                            <span>Em Execução</span>
+                        </div>
+                        <div class="legenda-item">
+                            <img src="icones/icones_legendas/concluido.png" alt="Concluído">
+                            <span>Concluído</span>
+                        </div>
+                    </div>
+                </div>
 
                 <div id="panel-sobre" class="panel-section">
-    <h3>Sobre a Plataforma</h3>
-    <p>O <strong>Mapa de Política de Desenvolvimento Rural</strong> é um atlas interativo para o monitoramento dos programas sob supervisão da <strong>SUTEF</strong>.</p>
-    <p style="margin-top: 10px;">Este grupo de apoio estrutura os dados georreferenciados para facilitar a gestão estratégica de programas fundamentais para o estado.</p>
-    
-    <h4 style="margin-top: 20px; color: #0352AA;">Programas Monitorados:</h4>
-    <ul class="lista-sobre">
-        <li><strong>📍 PSI:</strong> Projeto de Sustentabilidade Hídrica.</li>
-        <li><strong>📍 Pilares:</strong> Fortalecimento da agricultura familiar.</li>
-        <li><strong>📍 Sertão Vivo:</strong> Resiliência climática e produtiva.</li>
-    </ul>
+                    <h3>Sobre a Plataforma</h3>
+                    <p>O <strong>Mapa de Política de Desenvolvimento Rural</strong> é um atlas interativo para o monitoramento dos programas sob supervisão da <strong>SUTEF</strong>.</p>
+                    <p style="margin-top: 10px;">Este grupo de apoio estrutura os dados georreferenciados para facilitar a gestão estratégica de programas fundamentais para o estado.</p>
+                    
+                    <h4 style="margin-top: 20px; color: #0352AA;">Programas Monitorados:</h4>
+                    <ul class="lista-sobre">
+                        <li><strong>📍 PSI:</strong> Projeto de Sustentabilidade Hídrica.</li>
+                        <li><strong>📍 Pilares:</strong> Fortalecimento da agricultura familiar.</li>
+                        <li><strong>📍 Sertão Vivo:</strong> Resiliência climática e produtiva.</li>
+                    </ul>
 
-    <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;">
-        <p><strong>Desenvolvimento:</strong><br>
-        Lucas Mendes</p>
-    </div>
-</div>
-
+                    <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;">
+                        <p><strong>Desenvolvimento:</strong><br>
+                        Lucas Mendes</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -141,6 +142,7 @@
         // --- 2. FUNÇÃO DE FILTRAGEM ---
         function executarFiltroIframe() {
             const iframe = document.getElementById('map-frame');
+            // Verifica se a função aplicarFiltros existe no contexto do iframe
             if (iframe && iframe.contentWindow && iframe.contentWindow.parent.aplicarFiltros) {
                 iframe.contentWindow.parent.aplicarFiltros();
             }
@@ -151,10 +153,11 @@
         window.iniciarSlimSelect = function() {
             if (typeof SlimSelect === 'undefined') return setTimeout(window.iniciarSlimSelect, 100);
 
+            // IDs atualizados para os novos filtros
             const ids = [
-                'filtro-municipio', 'filtro-territorio', 'filtro-orgao', 'filtro-status',
-                'filtro-intermediaria', 'filtro-imediata', 'filtro-produto', 
-                'filtro-tipo-produto', 'filtro-tipo-localizacao'
+                'filtro-orgao', 'filtro-acao', 'filtro-tipo-acao', 'filtro-municipio',
+                'filtro-comunidade', 'filtro-territorio', 'filtro-componente', 
+                'filtro-status', 'filtro-tradicional', 'filtro-genero'
             ];
 
             ids.forEach(id => {
@@ -180,19 +183,20 @@
                 iframe.contentWindow.trocarCamadaBase(tipo);
             }
         }
-        function limparTodosFiltros() {
-    // 1. Limpa as seleções visuais do SlimSelect
-    Object.keys(window.selectsInstances).forEach(id => {
-        window.selectsInstances[id].set([]); // Define a seleção como vazia
-    });
 
-    // 2. Avisa o mapa para renderizar todos os dados originais
-    const iframe = document.getElementById('map-frame');
-    if (iframe && iframe.contentWindow && iframe.contentWindow.dadosCompletos) {
-        // Chama a função de renderizar pontos do script.js passando os dados totais
-        iframe.contentWindow.renderizarPontos(iframe.contentWindow.dadosCompletos);
-    }
-}
+        // --- 5. LIMPAR FILTROS ---
+        function limparTodosFiltros() {
+            // Limpa as seleções visuais do SlimSelect
+            Object.keys(window.selectsInstances).forEach(id => {
+                window.selectsInstances[id].set([]); 
+            });
+
+            // Reseta o mapa para o estado original
+            const iframe = document.getElementById('map-frame');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.dadosCompletos) {
+                iframe.contentWindow.renderizarPontos(iframe.contentWindow.dadosCompletos);
+            }
+        }
     </script>
 </body>
 </html>

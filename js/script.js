@@ -1,61 +1,40 @@
 // =========================================
 // 1. CONFIGURAÇÕES E URL
 // =========================================
-const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSezDjypmlJ_3_JwIwGYlfJSvTwbl9bxVAWe-iq-ORDPOCmQ2giOJAz9NrKP8DZWmTBUzcaCLsGpyS_/pub?gid=1701973260&single=true&output=csv";
+const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6gESmXXG_DWa-kT71etCA6zBdgp1tkSG94JG6_qfoJkNEFBuctf1wCUIFxhC7_-Q0HlOW5FGaPiOP/pub?gid=616431703&single=true&output=csv";
 
-// Limites geográficos (Bounds) do seu outro projeto
 var initialBounds = [[-18, -60], [10, -30]];
-if (window.innerWidth <= 600) {
-    initialBounds = [[-16, -62], [4, -23]];
-}
 
-// Configuração das Camadas de Base (Mapa e Satélite)
 const camadasBase = {
     "mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        maxZoom: 21,         // Zoom máximo permitido no mapa
-        maxNativeZoom: 19,   // Zoom real do servidor (impede a tela cinza ao dar zoom digital)
+        maxZoom: 21, 
+        maxNativeZoom: 19, 
         attribution: '© OpenStreetMap | Dev: Lucas Mendes' 
     }),
     "satelite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 21,         // Zoom máximo permitido no mapa
-        maxNativeZoom: 17,   // Esri geralmente tem tiles até o nível 18. Acima disso, ele amplia os pixels.
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community | Dev: Lucas Mendes'
+        maxZoom: 21, 
+        maxNativeZoom: 17,
+        attribution: 'Tiles &copy; Esri | Dev: Lucas Mendes'
     })
 };
 
 const map = L.map('map', {
-    zoomControl: false,
-    maxZoom: 21,
+    zoomControl: false, 
+    maxZoom: 21, 
     minZoom: 6,
-    maxBounds: initialBounds,      // Limita a área de navegação
-    maxBoundsViscosity: 1.0,        // Faz a borda ser "sólida"
+    maxBounds: initialBounds, 
+    maxBoundsViscosity: 1.0,
     layers: [camadasBase.mapa] 
 }).fitBounds([[-12.5, -45.5], [-2.5, -40.5]]);
 
-// Função global para trocar o mapa (chamada pelo index.html)
-window.trocarCamadaBase = function(tipo) {
-    if (tipo === 'satelite') {
-        map.removeLayer(camadasBase.mapa);
-        camadasBase.satelite.addTo(map);
-    } else {
-        map.removeLayer(camadasBase.satelite);
-        camadasBase.mapa.addTo(map);
-    }
-};
-
-window.dadosCompletos = []; 
-// Inicializa o Grupo de Clusters
-// Aumentar o raio deixa o mapa mais limpo, agrupando mais pontos
 window.clusterPontos = L.markerClusterGroup({ 
-    maxClusterRadius: 10, // Aumente este valor (padrão é 80, tente 100 ou 120 para agrupar muito)
-    showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true, // Quando você clica no nível máximo, ele abre os pontos em "teia"
-    disableClusteringAtZoom: 16 // Opcional: para de agrupar quando o zoom está muito perto
+    maxClusterRadius: 40, 
+    showCoverageOnHover: false 
 });
 map.addLayer(window.clusterPontos);
 
 // =========================================
-// 2. CARREGAMENTO DOS DADOS
+// 2. CARREGAMENTO E TRATAMENTO DE DADOS
 // =========================================
 
 Promise.all([
@@ -63,83 +42,101 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, csvText]) => {
     
+    // Renderiza o mapa de fundo (municípios)
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: '#ccc', weight: 1, fillOpacity: 0.05, interactive: false }
     }).addTo(map);
 
-    const regexCSV = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/; 
-    const linhas = csvText.split(/\r?\n/);
-    const cabecalho = linhas[0].split(regexCSV).map(c => c.trim().replace(/"/g, ''));
+    // --- LEITURA DO CSV COM PAPAPARSE ---
+    Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        complete: function(results) {
+            console.log("Linhas totais:", results.data.length);
 
-    window.dadosCompletos = linhas.slice(1).map(linha => {
-        const colunas = linha.split(regexCSV);
-        let obj = {};
-        cabecalho.forEach((col, i) => {
-            obj[col] = colunas[i] ? colunas[i].trim().replace(/^"|"$/g, '') : "";
-        });
-        return obj;
-    }).filter(item => item.LATITUDE && item.LONGITUDE);
+            // Filtra apenas itens que têm Latitude e Longitude preenchidas
+            window.dadosCompletos = results.data.filter((item) => {
+                const lat = item.Latitude ? item.Latitude.toString().trim() : "";
+                const lng = item.Longitude ? item.Longitude.toString().trim() : "";
+                // Verifica se não está vazio e se não é erro de referência do Excel
+                return lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
+            });
 
-    renderizarPontos(window.dadosCompletos);
-    inicializarFiltrosDinamicos();
+            console.log("Linhas válidas (com coordenadas):", window.dadosCompletos.length);
+            
+            renderizarPontos(window.dadosCompletos);
+            inicializarFiltrosDinamicos();
+        },
+        error: function(err) {
+            console.error("Erro no PapaParse:", err);
+        }
+    });
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
 
 // =========================================
-// 3. RENDERIZAÇÃO E ÍCONES (COM CLUSTERS)
+// 3. RENDERIZAÇÃO DE PONTOS
 // =========================================
 
 function renderizarPontos(lista) {
-    // Limpa os clusters antes de renderizar novos
     window.clusterPontos.clearLayers();
     window.todasObras = {}; 
 
-    lista.forEach(item => {
-        const lat = parseFloat(item.LATITUDE.replace(',', '.'));
-        const lng = parseFloat(item.LONGITUDE.replace(',', '.'));
-        const id = item.ID_REGISTRO;
-        const status = item.STATUS_ATUAL;
+    lista.forEach((item, index) => {
+        // Normaliza as coordenadas (troca vírgula por ponto)
+        const lat = parseFloat(item.Latitude.replace(',', '.'));
+        const lng = parseFloat(item.Longitude.replace(',', '.'));
+        const id = "item_" + index; 
+        
+        // Pega o status, remove espaços e trata vazio
+        const status = item['Status da ação'] ? item['Status da ação'].trim() : "";
 
+        // Se coordenadas forem números válidos, cria o marcador
         if (!isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
 
-            let urlIcone = 'icones/icones_legendas/padrao.png';
-            if (status === 'Contratado') urlIcone = 'icones/icones_legendas/contratado.png';
-            else if (status === 'Em Execução') urlIcone = 'icones/icones_legendas/em_execucao.png';
-            else if (status === 'Concluído') urlIcone = 'icones/icones_legendas/concluido.png';
+            // --- LÓGICA DE ÍCONES (CORRIGIDA) ---
+            let urlIcone = 'icones/icones_legendas/padrao.png'; // Fallback
 
-            // Proporção sugerida para pins: Largura é aproximadamente 75% da altura
-const largura = 25; 
-const altura = 35;
+            // Comparações de status
+            if (status === 'Não iniciado' || status === 'Contratado') {
+                // "Contratado" na planilha vira ícone de "Não iniciado" visualmente
+                urlIcone = 'icones/icones_legendas/nao_iniciado.png';
+            } 
+            else if (status === 'Em Execução' || status === 'Em execução') {
+                urlIcone = 'icones/icones_legendas/em_execucao.png';
+            } 
+            else if (status === 'Concluído' || status === 'Concluido') {
+                urlIcone = 'icones/icones_legendas/concluido.png';
+            }
 
-const customIcon = L.icon({
-    iconUrl: urlIcone,
-    iconSize: [largura, altura], // Define um tamanho fixo mas proporcional
-    iconAnchor: [largura / 2, altura], // Ancoragem exatamente no centro da base
-    popupAnchor: [0, -altura] // Popup aparece exatamente acima do topo do ícone
-});
+            const customIcon = L.icon({
+                iconUrl: urlIcone,
+                iconSize: [25, 35],
+                iconAnchor: [12, 35],
+                popupAnchor: [0, -35]
+            });
 
             const marker = L.marker([lat, lng], { icon: customIcon });
 
             let htmlPopup = `
                 <div style="min-width:200px">
-                    <h4 style="color:#0352AA; margin-bottom:5px;">${item.PRODUTO}</h4>
-                    <p style="font-size:12px"><b>Município:</b> ${item.MUNICIPIO}</p>
-                    <p style="font-size:12px"><b>Status:</b> ${item.STATUS_ATUAL}</p>
-                    <button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')">Ver Detalhes</button>
+                    <h4 style="color:#0352AA; margin-bottom:5px;">${item.Ação}</h4>
+                    <p style="font-size:12px"><b>Município:</b> ${item.Município}</p>
+                    <p style="font-size:12px"><b>Status:</b> ${status}</p>
+                    <button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')" style="cursor:pointer; background:#0352AA; color:white; border:none; padding:5px 10px; border-radius:4px; margin-top:5px; width:100%;">Ver Detalhes</button>
                 </div>`;
             
             marker.bindPopup(htmlPopup);
-            
-            // IMPORTANTE: Adiciona ao cluster, não ao mapa diretamente
             window.clusterPontos.addLayer(marker);
         }
     });
 }
 
 // =========================================
-// 4. SIDEBAR (ABRIR DETALHES)
+// 4. SIDEBAR (DETALHES)
 // =========================================
 
 window.abrirDetalhesSidebar = function(id) {
@@ -150,49 +147,56 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const perc = parseFloat(p.PERC_EXECUCAO?.replace(',', '.') || 0);
+    const descartar = ["Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+
+    let html = `<h3>${p.Ação}</h3>`;
     
-    let html = `
+    // Tratamento seguro da porcentagem
+    let percVal = "0";
+    if (p['% Meta Física Executada']) {
+        percVal = p['% Meta Física Executada'].toString().replace('%', '').replace(',', '.');
+    }
+    const perc = parseFloat(percVal) || 0;
+    
+    html += `
         <div class="detalhe-item">
-            <strong>Execução Física</strong>
-            <div class="progress-container">
-                <div class="progress-bar" style="width: ${perc}%"></div>
+            <strong>Execução Física (Meta)</strong>
+            <div class="progress-container" style="background:#eee; border-radius:10px; height:10px; margin:5px 0;">
+                <div class="progress-bar" style="width: ${perc}%; background:#28a745; height:100%; border-radius:10px;"></div>
             </div>
-            <span style="font-size:11px">${p.PERC_EXECUCAO} concluído</span>
+            <span style="font-size:11px">${p['% Meta Física Executada'] || '0%'} concluído</span>
         </div>
-        <div class="detalhe-item"><strong>ID</strong><span>${p.ID_REGISTRO}</span></div>
-        <div class="detalhe-item"><strong>Produto</strong><span>${p.PRODUTO}</span></div>
-        <div class="detalhe-item"><strong>Tipo de Produto</strong><span>${p.TIPO_PRODUTO}</span></div>
-        <div class="detalhe-item"><strong>Município</strong><span>${p.MUNICIPIO}</span></div>
-        <div class="detalhe-item"><strong>Território</strong><span>${p.TERRITORIO}</span></div>
-        <div class="detalhe-item"><strong>Região Intermediária</strong><span>${p.REGIAO_INTERMEDIARIA}</span></div>
-        <div class="detalhe-item"><strong>Região Imediata</strong><span>${p.REGIAO_IMEDIATA}</span></div>
-        <div class="detalhe-item"><strong>Órgão Executor</strong><span>${p.ORGAO_EXECUTOR}</span></div>
-        <div class="detalhe-item"><strong>Valor Contratado</strong><span>${p.VALOR_CONTRATADO}</span></div>
-        <div class="detalhe-item"><strong>Status</strong><span>${p.STATUS_ATUAL}</span></div>
-        <div class="detalhe-item"><strong>Tipo Localização</strong><span>${p.TIPO_LOCALIZACAO}</span></div>
-        <div class="detalhe-item"><strong>Observações</strong><span>${p.OBSERVACOES || '-'}</span></div>
     `;
+
+    for (let key in p) {
+        if (!descartar.includes(key) && p[key] !== "") {
+            html += `<div class="detalhe-item"><strong>${key}</strong><span>${p[key]}</span></div>`;
+        }
+    }
 
     divConteudo.innerHTML = html;
 };
 
 // =========================================
-// 5. FILTROS DINÂMICOS (ATUALIZADO)
+// 5. FILTROS DINÂMICOS
 // =========================================
 
 function inicializarFiltrosDinamicos() {
-    const getUnique = (col) => [...new Set(window.dadosCompletos.map(d => d[col]))].filter(x => x).sort();
+    const getUnique = (col) => {
+        const valores = window.dadosCompletos.map(d => d[col] ? d[col].trim() : "");
+        return [...new Set(valores)].filter(x => x !== "").sort();
+    };
 
-    preencherSelect('filtro-municipio', getUnique('MUNICIPIO'));
-    preencherSelect('filtro-territorio', getUnique('TERRITORIO'));
-    preencherSelect('filtro-orgao', getUnique('ORGAO_EXECUTOR'));
-    preencherSelect('filtro-status', getUnique('STATUS_ATUAL'));
-    preencherSelect('filtro-intermediaria', getUnique('REGIAO_INTERMEDIARIA'));
-    preencherSelect('filtro-imediata', getUnique('REGIAO_IMEDIATA'));
-    preencherSelect('filtro-produto', getUnique('PRODUTO'));
-    preencherSelect('filtro-tipo-produto', getUnique('TIPO_PRODUTO'));
-    preencherSelect('filtro-tipo-localizacao', getUnique('TIPO_LOCALIZACAO'));
+    preencherSelect('filtro-orgao', getUnique('Órgão Executor'));
+    preencherSelect('filtro-acao', getUnique('Ação'));
+    preencherSelect('filtro-tipo-acao', getUnique('Tipo de Ação'));
+    preencherSelect('filtro-municipio', getUnique('Município'));
+    preencherSelect('filtro-comunidade', getUnique('Comunidade/ Localidade'));
+    preencherSelect('filtro-territorio', getUnique('Território'));
+    preencherSelect('filtro-componente', getUnique('Componente'));
+    preencherSelect('filtro-status', getUnique('Status da ação'));
+    preencherSelect('filtro-tradicional', getUnique('Povos de comunidades tradicionais'));
+    preencherSelect('filtro-genero', getUnique('Gênero')); 
 
     if (window.parent.iniciarSlimSelect) window.parent.iniciarSlimSelect();
 }
@@ -212,34 +216,45 @@ function preencherSelect(id, lista) {
 // Lógica de Filtragem Multicritério
 window.parent.aplicarFiltros = function() {
     const docPai = window.parent.document;
-    const getS = (id) => Array.from(docPai.getElementById(id).selectedOptions).map(o => o.value);
+    const getS = (id) => {
+        const el = docPai.getElementById(id);
+        return el ? Array.from(el.selectedOptions).map(o => o.value) : [];
+    };
 
-    // Mapeamento: Filtro HTML -> Coluna na Planilha
     const filtrosAtivos = {
-        MUNICIPIO: getS('filtro-municipio'),
-        TERRITORIO: getS('filtro-territorio'),
-        ORGAO_EXECUTOR: getS('filtro-orgao'),
-        STATUS_ATUAL: getS('filtro-status'),
-        REGIAO_INTERMEDIARIA: getS('filtro-intermediaria'),
-        REGIAO_IMEDIATA: getS('filtro-imediata'),
-        PRODUTO: getS('filtro-produto'),
-        TIPO_PRODUTO: getS('filtro-tipo-produto'),
-        TIPO_LOCALIZACAO: getS('filtro-tipo-localizacao')
+        'Órgão Executor': getS('filtro-orgao'),
+        'Ação': getS('filtro-acao'),
+        'Tipo de Ação': getS('filtro-tipo-acao'),
+        'Município': getS('filtro-municipio'),
+        'Comunidade/ Localidade': getS('filtro-comunidade'),
+        'Território': getS('filtro-territorio'),
+        'Componente': getS('filtro-componente'),
+        'Status da ação': getS('filtro-status'),
+        'Povos de comunidades tradicionais': getS('filtro-tradicional'),
+        'Gênero': getS('filtro-genero')
     };
 
     const filtrados = window.dadosCompletos.filter(item => {
-        // Verifica se o item passa em TODOS os filtros selecionados
         return Object.keys(filtrosAtivos).every(chave => {
             const selecao = filtrosAtivos[chave];
-            return selecao.length === 0 || selecao.includes(item[chave]);
+            const valorItem = item[chave] ? item[chave].trim() : "";
+            return selecao.length === 0 || selecao.includes(valorItem);
         });
     });
 
     renderizarPontos(filtrados);
-    if(window.innerWidth <= 600) docPai.getElementById('sidebar-container').classList.add('closed');
+    
+    if(window.innerWidth <= 600) {
+        docPai.getElementById('sidebar-container').classList.add('closed');
+    }
 };
 
-function limparTexto(t) {
-    if (!t) return 'padrao';
-    return t.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^\w]/g, '');
-}
+window.trocarCamadaBase = function(tipo) {
+    if (tipo === 'satelite') {
+        map.removeLayer(camadasBase.mapa);
+        camadasBase.satelite.addTo(map);
+    } else {
+        map.removeLayer(camadasBase.satelite);
+        camadasBase.mapa.addTo(map);
+    }
+};

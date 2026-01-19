@@ -124,6 +124,8 @@ body, html {
     background-color: white;
     padding: 20px;
     overflow-y: auto; /* Permite rolar o conteúdo */
+    overflow-x: hidden !important;
+    padding-right: 5px;
 }
 
 .panel-section {
@@ -355,57 +357,33 @@ iframe {
 }
 
 /* =========================================
-   9. ESTILO DOS CLUSTERS (BOLINHAS AZUIS)
+   9. ESTILO DOS CLUSTERS (AGRUPAMENTOS)
    ========================================= */
-/* Configuração Base da Bolinha */
-.marker-cluster-small,
-.marker-cluster-medium,
-.marker-cluster-large {
+/* Círculo Base */
+.marker-cluster {
     background-clip: padding-box;
-    border-radius: 50%;
+    border-radius: 20px;
 }
 
-/* O Miolo da Bolinha */
 .marker-cluster div {
-    width: 30px;
-    height: 30px;
-    margin-left: 5px;
-    margin-top: 5px;
-    text-align: center;
-    border-radius: 50%;
+    width: 30px; height: 30px; margin-left: 5px; margin-top: 5px;
+    text-align: center; border-radius: 15px; font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
+    color: #333; font-weight: bold; display: flex; justify-content: center; align-items: center;
 }
+.marker-cluster span { line-height: 30px; }
 
-/* 1. POUCOS PONTOS (< 10) -> AZUL CLARO */
-.marker-cluster-small {
-    background-color: rgba(181, 226, 255, 0.6) !important; /* Anel */
-}
-.marker-cluster-small div {
-    background-color: rgba(100, 181, 246, 0.9) !important; /* Miolo */
-}
+/* Cores - Verde para poucos */
+.marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
+.marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
 
-/* 2. MÉDIA QUANTIDADE (< 50) -> AZUL MÉDIO */
-.marker-cluster-medium {
-    background-color: rgba(100, 181, 246, 0.6) !important;
-}
-.marker-cluster-medium div {
-    background-color: rgba(33, 150, 243, 0.9) !important;
-}
+/* Cores - Amarelo para médio */
+.marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
+.marker-cluster-medium div { background-color: rgba(240, 194, 12, 0.6); }
 
-/* 3. MUITOS PONTOS (> 50) -> AZUL FORTE */
-.marker-cluster-large {
-    background-color: rgba(33, 150, 243, 0.6) !important;
-}
-.marker-cluster-large div {
-    background-color: rgba(3, 82, 170, 0.9) !important;
-}
+/* Cores - Laranja/Vermelho para muitos */
+.marker-cluster-large { background-color: rgba(253, 156, 115, 0.6); }
+.marker-cluster-large div { background-color: rgba(241, 128, 23, 0.6); }
 
-/* ESCONDER TEXTO/NÚMEROS (Garantia Absoluta) */
-.marker-cluster span {
-    display: none !important;
-}
-.marker-cluster div {
-    color: transparent !important;
-}
 
 /* --- ESTILO DOS DETALHES DA OBRA (SIDEBAR) --- */
 
@@ -485,37 +463,29 @@ iframe {
     background-color: white; 
     border: 1px solid #eee;
     border-radius: 8px;
-    
-    /* SEGREDOS PARA NÃO VAZAR */
-    position: relative !important; /* Mantém ele no fluxo do documento */
-    z-index: 1 !important;         /* Garante que não cubra o texto */
+    position: relative !important;
+    z-index: 1 !important;
     display: block;
-    margin-top: 15px;              /* Afasta do título */
-    margin-bottom: 20px;           /* Espaço no final */
-    box-sizing: border-box;        /* Garante que borda não aumente largura */
-    overflow: hidden;              /* Corta qualquer coisa que saia da caixa */
+    margin-top: 15px;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 /* Título do Mapa */
 .detalhe-item strong {
     display: block;
     margin-bottom: 5px;
-    position: relative; /* Garante que o texto tenha sua própria camada */
-    z-index: 2;         /* Fica ACIMA do mapa */
-    background: white;  /* Opcional: Garante legibilidade */
+    position: relative;
+    z-index: 2;
+    background: white;
 }
 
 /* Força o Leaflet a se comportar */
 .leaflet-container {
-    position: absolute !important; /* Dentro do container relativo */
+    position: absolute !important;
     top: 0; left: 0; right: 0; bottom: 0;
     margin: 0 !important;
     background: transparent !important;
     outline: none !important;
-}
-
-/* Mata a rolagem horizontal do painel branco */
-.content-panel {
-    overflow-x: hidden !important;
-    padding-right: 5px; /* Espaço para a barra de rolagem não cobrir texto */
 }
