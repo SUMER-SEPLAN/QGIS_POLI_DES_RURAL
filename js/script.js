@@ -28,17 +28,113 @@ const map = L.map('map', {
     layers: [camadasBase.mapa] 
 }).fitBounds([[-12.5, -45.5], [-2.5, -40.5]]);
 
-// Regra de Agrupamento baseada em Zoom
 window.clusterPontos = L.markerClusterGroup({ 
-    maxClusterRadius: 25,          // Seu novo raio de 25 pixels
-    disableClusteringAtZoom: 40,    // A partir do zoom 16, os pontos não agrupam mais
+    maxClusterRadius: 25,
+    disableClusteringAtZoom: 40,
     showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true        // Abre em teia se houver pontos sobrepostos no zoom máximo
+    spiderfyOnMaxZoom: true
 });
 map.addLayer(window.clusterPontos);
 
 // =========================================
-// 2. CARREGAMENTO E TRATAMENTO DE DADOS
+// 2. FUNÇÃO PARA SORTEIO DE PONTOS (COM VALIDAÇÃO E BUFFER DE 2KM)
+// =========================================
+function gerarPontoNoMunicipio(municipioFeature) {
+    // Se o turf não carregou, usa método simplificado
+    if (typeof turf === 'undefined') {
+        console.warn("Turf.js não disponível. Usando centróide do município.");
+        const bounds = L.geoJSON(municipioFeature).getBounds();
+        return [bounds.getCenter().lat, bounds.getCenter().lng];
+    }
+
+    try {
+        // Cria um buffer NEGATIVO de -2km
+        // Isso garante que o ponto fique 2km dentro do limite
+        const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
+        const poligonoComBuffer = turf.buffer(poligonoOriginal, -1, { units: 'kilometers' });
+        
+        // Se o buffer negativo resultar em null ou polígono vazio, usa o original
+        if (!poligonoComBuffer || !poligonoComBuffer.geometry) {
+            console.warn("Município muito pequeno para buffer de 2km. Usando polígono original.");
+            return gerarPontoSemBuffer(municipioFeature);
+        }
+
+        // Pega os bounds do polígono com buffer
+        const bounds = turf.bbox(poligonoComBuffer);
+        const [west, south, east, north] = bounds;
+        
+        let lat, lng, pontoValido = false;
+        let tentativas = 0;
+        const maxTentativas = 100;
+
+        // Tenta até 100 vezes encontrar um ponto DENTRO do polígono com buffer
+        while (!pontoValido && tentativas < maxTentativas) {
+            lat = south + Math.random() * (north - south);
+            lng = west + Math.random() * (east - west);
+            
+            const pontoSorteado = turf.point([lng, lat]);
+            
+            if (turf.booleanPointInPolygon(pontoSorteado, poligonoComBuffer)) {
+                pontoValido = true;
+            }
+            tentativas++;
+        }
+
+        // Se não encontrou ponto válido após 100 tentativas, tenta sem buffer
+        if (!pontoValido) {
+            console.warn("Não foi possível gerar ponto com buffer. Tentando sem buffer...");
+            return gerarPontoSemBuffer(municipioFeature);
+        }
+
+        return [lat, lng];
+    } catch (erro) {
+        console.error("Erro ao gerar ponto:", erro);
+        return gerarPontoSemBuffer(municipioFeature);
+    }
+}
+
+// Função auxiliar para gerar ponto sem buffer (fallback)
+function gerarPontoSemBuffer(municipioFeature) {
+    if (typeof turf === 'undefined') {
+        const bounds = L.geoJSON(municipioFeature).getBounds();
+        return [bounds.getCenter().lat, bounds.getCenter().lng];
+    }
+
+    try {
+        const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
+        const bounds = turf.bbox(poligonoOriginal);
+        const [west, south, east, north] = bounds;
+        
+        let lat, lng, pontoValido = false;
+        let tentativas = 0;
+
+        while (!pontoValido && tentativas < 100) {
+            lat = south + Math.random() * (north - south);
+            lng = west + Math.random() * (east - west);
+            
+            const pontoSorteado = turf.point([lng, lat]);
+            
+            if (turf.booleanPointInPolygon(pontoSorteado, poligonoOriginal)) {
+                pontoValido = true;
+            }
+            tentativas++;
+        }
+
+        if (!pontoValido) {
+            // Retorna centróide como último recurso
+            const bounds = L.geoJSON(municipioFeature).getBounds();
+            return [bounds.getCenter().lat, bounds.getCenter().lng];
+        }
+
+        return [lat, lng];
+    } catch (erro) {
+        console.error("Erro crítico ao gerar ponto:", erro);
+        const bounds = L.geoJSON(municipioFeature).getBounds();
+        return [bounds.getCenter().lat, bounds.getCenter().lng];
+    }
+}
+// =========================================
+// 3. CARREGAMENTO E TRATAMENTO DE DADOS
 // =========================================
 
 Promise.all([
@@ -46,42 +142,47 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, csvText]) => {
     
-    // Renderiza o mapa de fundo (municípios)
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: '#ccc', weight: 1, fillOpacity: 0.05, interactive: false }
     }).addTo(map);
 
-    // --- LEITURA DO CSV COM PAPAPARSE ---
     Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: false,
-        complete: function(results) {
-            console.log("Linhas totais:", results.data.length);
-
-            // Filtra apenas itens que têm Latitude e Longitude preenchidas
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+    complete: function(results) {
+        // Função para iniciar o processamento
+        const processar = () => {
             window.dadosCompletos = results.data.filter((item) => {
                 const lat = item.Latitude ? item.Latitude.toString().trim() : "";
                 const lng = item.Longitude ? item.Longitude.toString().trim() : "";
-                // Verifica se não está vazio e se não é erro de referência do Excel
-                return lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
+                const ibge = item.cod_ibge ? item.cod_ibge.toString().trim() : "";
+                
+                const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
+                const temIBGE = ibge !== "";
+
+                return temCoordenada || temIBGE;
             });
 
-            console.log("Linhas válidas (com coordenadas):", window.dadosCompletos.length);
-            
             renderizarPontos(window.dadosCompletos);
             inicializarFiltrosDinamicos();
-        },
-        error: function(err) {
-            console.error("Erro no PapaParse:", err);
+        };
+
+        // Se o Turf ainda não carregou, espera 300ms e tenta de novo
+        if (typeof turf === 'undefined') {
+            console.log("Aguardando Turf.js para processamento preciso...");
+            setTimeout(processar, 300);
+        } else {
+            processar();
         }
-    });
+    }
+});
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
 
 // =========================================
-// 3. RENDERIZAÇÃO DE PONTOS
+// 4. RENDERIZAÇÃO DE PONTOS (COM NOVO AVISO)
 // =========================================
 
 function renderizarPontos(lista) {
@@ -89,44 +190,59 @@ function renderizarPontos(lista) {
     window.todasObras = {}; 
 
     lista.forEach((item, index) => {
-        // Normaliza as coordenadas (troca vírgula por ponto)
-        const lat = parseFloat(item.Latitude.replace(',', '.'));
-        const lng = parseFloat(item.Longitude.replace(',', '.'));
         const id = "item_" + index; 
-        
-        // Pega o status, remove espaços e trata vazio
         const status = item['Status da ação'] ? item['Status da ação'].trim() : "";
+        
+        let lat, lng;
+        let ehLocalizacaoAproximada = false;
 
-        // Se coordenadas forem números válidos, cria o marcador
+        // Tenta GPS primeiro
+        if (item.Latitude && item.Longitude && item.Latitude !== "#REF!") {
+            lat = parseFloat(item.Latitude.replace(',', '.'));
+            lng = parseFloat(item.Longitude.replace(',', '.'));
+        } 
+        // Se não tiver GPS, usa o sorteio por Município
+        else if (item.cod_ibge && window.dadosGlobais.municipios) {
+            const munFeature = window.dadosGlobais.municipios.features.find(f => 
+                String(f.properties["Código do IBGE"]) === String(item.cod_ibge)
+            );
+            if (munFeature) {
+                const pontoSorteado = gerarPontoNoMunicipio(munFeature);
+                lat = pontoSorteado[0];
+                lng = pontoSorteado[1];
+                ehLocalizacaoAproximada = true; 
+            }
+        }
+
         if (!isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
 
-            // --- LÓGICA DE ÍCONES (CORRIGIDA) ---
-            let urlIcone = 'icones/icones_legendas/padrao.png'; // Fallback
-
-            // Comparações de status
+            let urlIcone = 'icones/icones_legendas/padrao.png';
             if (status === 'Não iniciado' || status === 'Contratado') {
-                // "Contratado" na planilha vira ícone de "Não iniciado" visualmente
                 urlIcone = 'icones/icones_legendas/nao_iniciado.png';
-            } 
-            else if (status === 'Em Execução' || status === 'Em execução') {
+            } else if (status === 'Em Execução' || status === 'Em execução') {
                 urlIcone = 'icones/icones_legendas/em_execucao.png';
-            } 
-            else if (status === 'Concluído' || status === 'Concluido') {
+            } else if (status === 'Concluído' || status === 'Concluido') {
                 urlIcone = 'icones/icones_legendas/concluido.png';
             }
 
-            const customIcon = L.icon({
+            const marker = L.marker([lat, lng], { icon: L.icon({
                 iconUrl: urlIcone,
                 iconSize: [25, 35],
                 iconAnchor: [12, 35],
                 popupAnchor: [0, -35]
-            });
+            })});
 
-            const marker = L.marker([lat, lng], { icon: customIcon });
+            // NOVO TEXTO DE AVISO
+            const avisoAproximado = ehLocalizacaoAproximada 
+                ? `<div style="background: #fff3cd; color: #856404; font-size: 10px; padding: 5px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ffeeba;">
+                    ⚠️ Localização aproximada (Gerada Aleatória)
+                   </div>` 
+                : "";
 
             let htmlPopup = `
                 <div style="min-width:200px">
+                    ${avisoAproximado}
                     <h4 style="color:#0352AA; margin-bottom:5px;">${item.Ação}</h4>
                     <p style="font-size:12px"><b>Município:</b> ${item.Município}</p>
                     <p style="font-size:12px"><b>Status:</b> ${status}</p>
@@ -140,7 +256,7 @@ function renderizarPontos(lista) {
 }
 
 // =========================================
-// 4. SIDEBAR (DETALHES)
+// 5. SIDEBAR (DETALHES ORIGINAL)
 // =========================================
 
 window.abrirDetalhesSidebar = function(id) {
@@ -151,11 +267,10 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","cod_ibge","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
 
     let html = `<h3>${p.Ação}</h3>`;
     
-    // Tratamento seguro da porcentagem
     let percVal = "0";
     if (p['% Meta Física Executada']) {
         percVal = p['% Meta Física Executada'].toString().replace('%', '').replace(',', '.');
