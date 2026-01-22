@@ -5,6 +5,23 @@ const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6gESmXXG
 
 var initialBounds = [[-18, -60], [10, -30]];
 
+// =========================================
+// CORES DOS TERRITÓRIOS
+// =========================================
+const CORES_TERRITORIOS = {
+    "VALE DO RIO SAMBITO": "#C45E4780",
+    "CHAPADA VALE DO ITAIM": "#FFCFE880",
+    "ENTRE-RIOS": "#75C9FF80",
+    "VALE DOS RIOS PIAUÍ E ITAUEIRAS": "#BC81BD80",
+    "VALE DO RIO GUARIBAS": "#296DB580",
+    "SERRA DA CAPIVARA": "#B2DD6C80",
+    "VALE DO RIO CANINDÉ": "#D7D7D780",
+    "PLANÍCIE LITORÂNEA": "#F5F5F515",
+    "CARNAUBAIS": "#F5F5F515",
+    "TABULEIRO DO ALTO PARNAÍBA": "#F5F5F515",
+    "CHAPADA DAS MANGABEIRAS": "#F5F5F515"
+};
+
 const camadasBase = {
     "mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
         maxZoom: 21, 
@@ -133,51 +150,70 @@ function gerarPontoSemBuffer(municipioFeature) {
         return [bounds.getCenter().lat, bounds.getCenter().lng];
     }
 }
+
 // =========================================
 // 3. CARREGAMENTO E TRATAMENTO DE DADOS
 // =========================================
 
 Promise.all([
     fetch('data/municipios.geojson').then(res => res.json()),
+    fetch('data/municipio_territorio.geojson').then(res => res.json()),
     fetch(URL_PLANILHA).then(res => res.text())
-]).then(([municipiosData, csvText]) => {
+]).then(([municipiosData, territoriosData, csvText]) => {
     
+    // CAMADA INVISÍVEL para lógica de pontos (municipios.geojson)
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
-        style: { color: '#ccc', weight: 1, fillOpacity: 0.05, interactive: false }
+        style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false }
+    }).addTo(map);
+
+    // CAMADA COLORIDA visível (municipio_territorio.geojson)
+    L.geoJSON(territoriosData, {
+        style: function(feature) {
+            const territorio = feature.properties.Territóri || feature.properties.Território || feature.properties.TERRITORIO || "";
+            const cor = CORES_TERRITORIOS[territorio.trim()] || "#F5F5F515";
+            
+            return {
+                color: '#999',
+                weight: 0.5,
+                fillColor: cor,
+                fillOpacity: 1,
+                interactive: false
+            };
+        }
     }).addTo(map);
 
     Papa.parse(csvText, {
-    header: true,
-    skipEmptyLines: true,
-    dynamicTyping: false,
-    complete: function(results) {
-        // Função para iniciar o processamento
-        const processar = () => {
-            window.dadosCompletos = results.data.filter((item) => {
-                const lat = item.Latitude ? item.Latitude.toString().trim() : "";
-                const lng = item.Longitude ? item.Longitude.toString().trim() : "";
-                const ibge = item.cod_ibge ? item.cod_ibge.toString().trim() : "";
-                
-                const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
-                const temIBGE = ibge !== "";
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        complete: function(results) {
+            // Função para iniciar o processamento
+            const processar = () => {
+                window.dadosCompletos = results.data.filter((item) => {
+                    const lat = item.Latitude ? item.Latitude.toString().trim() : "";
+                    const lng = item.Longitude ? item.Longitude.toString().trim() : "";
+                    const ibge = item.cod_ibge ? item.cod_ibge.toString().trim() : "";
+                    
+                    const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
+                    const temIBGE = ibge !== "";
 
-                return temCoordenada || temIBGE;
-            });
+                    return temCoordenada || temIBGE;
+                });
 
-            renderizarPontos(window.dadosCompletos);
-            inicializarFiltrosDinamicos();
-        };
+                renderizarPontos(window.dadosCompletos);
+                inicializarFiltrosDinamicos();
+            };
 
-        // Se o Turf ainda não carregou, espera 300ms e tenta de novo
-        if (typeof turf === 'undefined') {
-            console.log("Aguardando Turf.js para processamento preciso...");
-            setTimeout(processar, 300);
-        } else {
-            processar();
+            // Se o Turf ainda não carregou, espera 300ms e tenta de novo
+            if (typeof turf === 'undefined') {
+                console.log("Aguardando Turf.js para processamento preciso...");
+                setTimeout(processar, 300);
+            } else {
+                processar();
+            }
         }
-    }
-});
+    });
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
 
@@ -267,7 +303,7 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["ID","cod_ibge","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","cod_ibge","CD_MUN","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
 
     let html = `<h3>${p.Ação}</h3>`;
     
@@ -297,7 +333,7 @@ window.abrirDetalhesSidebar = function(id) {
 };
 
 // =========================================
-// 5. FILTROS DINÂMICOS
+// 6. FILTROS DINÂMICOS
 // =========================================
 
 function inicializarFiltrosDinamicos() {
