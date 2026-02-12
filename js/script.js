@@ -1,7 +1,7 @@
 // =========================================
 // 1. CONFIGURAÇÕES E URL
 // =========================================
-const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6gESmXXG_DWa-kT71etCA6zBdgp1tkSG94JG6_qfoJkNEFBuctf1wCUIFxhC7_-Q0HlOW5FGaPiOP/pub?gid=616431703&single=true&output=csv";
+const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROnRELmtDRjl12Rqtggn-OB7Gpn2uwAafT_wcc8lpYbo7TJ19tptGS9rQWW-4BGw/pub?gid=1496525997&single=true&output=csv";
 
 var initialBounds = [[-18, -60], [10, -30]];
 
@@ -193,7 +193,9 @@ Promise.all([
                 window.dadosCompletos = results.data.filter((item) => {
                     const lat = item.Latitude ? item.Latitude.toString().trim() : "";
                     const lng = item.Longitude ? item.Longitude.toString().trim() : "";
-                    const ibge = item.cod_ibge ? item.cod_ibge.toString().trim() : "";
+                    
+                    // ATUALIZADO: Usando o novo nome da coluna "Código do município"
+                    const ibge = item["Código do município"] ? item["Código do município"].toString().trim() : "";
                     
                     const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
                     const temIBGE = ibge !== "";
@@ -238,9 +240,10 @@ function renderizarPontos(lista) {
             lng = parseFloat(item.Longitude.replace(',', '.'));
         } 
         // Se não tiver GPS, usa o sorteio por Município
-        else if (item.cod_ibge && window.dadosGlobais.municipios) {
+        // ATUALIZADO: Comparando com "Código do município"
+        else if (item["Código do município"] && window.dadosGlobais.municipios) {
             const munFeature = window.dadosGlobais.municipios.features.find(f => 
-                String(f.properties["Código do IBGE"]) === String(item.cod_ibge)
+                String(f.properties["Código do IBGE"]) === String(item["Código do município"])
             );
             if (munFeature) {
                 const pontoSorteado = gerarPontoNoMunicipio(munFeature);
@@ -303,7 +306,7 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["ID","cod_ibge","CD_MUN","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","Código do município","Subcomponente/ Subproduto","Data de Ordem de serviço","Vigência de execução do contrato","Meta Física Planejada","Meta Física Executada","Evidência (link)", "CPF", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
 
     let html = `<h3>${p.Ação}</h3>`;
     
