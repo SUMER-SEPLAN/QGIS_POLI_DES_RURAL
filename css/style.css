@@ -33,8 +33,8 @@ body, html {
 .marker-cluster span { line-height: 30px; }
 
 /* Cores */
-.marker-cluster-small { background-color: rgba(181, 226, 140, 0.6); }
-.marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
+.marker-cluster-small { background-color: rgba(215, 250, 242, 0.6); }
+.marker-cluster-small div { background-color: rgba(161, 223, 208, 0.6); }
 
 .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
 .marker-cluster-medium div { background-color: rgba(240, 194, 12, 0.6); }
