@@ -41,3 +41,123 @@ body, html {
 
 .marker-cluster-large { background-color: rgba(253, 156, 115, 0.6); }
 .marker-cluster-large div { background-color: rgba(241, 128, 23, 0.6); }
+
+/* =========================================
+   CONTROLE DE BUSCA (SEARCH)
+   ========================================= */
+.leaflet-control-search {
+    box-shadow: 0 3px 14px rgba(0,0,0,0.4) !important;
+    background: white !important;
+    border-radius: 30px !important;
+    border: none !important;
+    margin-right: 10px !important;  /* ← era margin-left: 15px */
+    margin-top: 10px !important;    /* ← era 15px */
+    height: 48px !important;
+    width: 48px !important;
+    overflow: hidden;
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), border-radius 0.4s;
+    display: flex;                  /* ← removido o !important */
+    align-items: center;
+}
+
+.leaflet-control-search.search-exp {
+    width: 320px !important;
+    border-radius: 4px !important;
+    background: white !important;  /* ← adicionado */
+    overflow: visible;
+}
+
+/* --- BOTÃO DA LUPA --- */
+.leaflet-control-search .search-button {
+    width: 48px !important;
+    height: 48px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23555555' width='24px' height='24px'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: 24px !important;
+    float: left !important;        /* ← adicionado */
+    display: block;                /* ← adicionado */
+    opacity: 0.8;
+    cursor: pointer;               /* ← adicionado */
+    margin: 0 !important;          /* ← adicionado */
+    border: none !important;
+}
+
+.leaflet-control-search .search-button:hover {
+    opacity: 1;                    /* ← adicionado */
+}
+
+/* --- CAMPO DE TEXTO --- */
+.leaflet-control-search .search-input {
+    float: left;                   /* ← adicionado */
+    height: 48px !important;
+    padding: 0 10px 0 0 !important; /* ← era 0 10px */
+    border: none !important;
+    margin: 0 !important;          /* ← adicionado */
+    font-size: 14px;
+    outline: none;
+    color: #495057;                /* ← adicionado */
+    width: 260px !important;
+    background: transparent !important;
+    font-family: "Segoe UI", sans-serif; /* ← adicionado */
+    box-shadow: none !important;   /* ← adicionado */
+}
+
+.leaflet-control-search .search-cancel { display: none !important; }
+.leaflet-control-search label { display: none !important; }
+
+/* =========================================
+   LISTA DE SUGESTÕES (TOOLTIP)
+   ========================================= */
+.leaflet-control-search .search-tooltip {
+    position: absolute;
+    top: 55px;
+    left: 0;
+    min-width: 310px;
+    max-height: 280px;
+    overflow-y: auto;              /* ← adicionado */
+    background-color: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    padding: 0;                    /* ← adicionado */
+    margin: 0;                     /* ← adicionado */
+    z-index: 10000;
+    display: none;                 /* ← adicionado */
+}
+
+.leaflet-control-search .search-tip {
+    margin: 0;                     /* ← adicionado */
+    padding: 10px 15px;
+    border-bottom: 1px solid #f1f1f1;
+    color: #333;
+    font-size: 13px;
+    cursor: pointer;
+    background: white;             /* ← adicionado */
+    list-style: none;              /* ← adicionado */
+    display: block;                /* ← adicionado */
+}
+
+.leaflet-control-search .search-tip:hover,
+.leaflet-control-search .search-tip-select {
+    background-color: #f8f9fa;
+    color: #000;                   /* ← adicionado */
+    font-weight: 600;
+    border-left: 3px solid #007bff;
+}
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES PEQUENOS)
+   ========================================= */
+@media (max-width: 400px) {       /* ← seção inteira adicionada */
+    .leaflet-control-search.search-exp {
+        width: 250px !important;
+    }
+
+    .leaflet-control-search .search-input {
+        width: 200px !important;
+    }
+
+    .leaflet-control-search .search-tooltip {
+        min-width: 250px !important;
+    }
+}

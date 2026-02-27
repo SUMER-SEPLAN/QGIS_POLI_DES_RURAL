@@ -161,14 +161,14 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, territoriosData, csvText]) => {
     
-    // CAMADA INVISÍVEL para lógica de pontos (municipios.geojson)
+    // CAMADA INVISÍVEL para lógica de pontos
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false }
     }).addTo(map);
 
-    // CAMADA COLORIDA visível (municipio_territorio.geojson)
-    L.geoJSON(territoriosData, {
+    // CAMADA COLORIDA (municipio_territorio.geojson) - USADA PARA A BUSCA
+    const camadaTerritorios = L.geoJSON(territoriosData, {
         style: function(feature) {
             const territorio = feature.properties.Territóri || feature.properties.Território || feature.properties.TERRITORIO || "";
             const cor = CORES_TERRITORIOS[territorio.trim()] || "#F5F5F515";
@@ -178,23 +178,23 @@ Promise.all([
                 weight: 0.5,
                 fillColor: cor,
                 fillOpacity: 1,
-                interactive: false
+                interactive: true // DEVE SER TRUE PARA A BUSCA FUNCIONAR
             };
         }
     }).addTo(map);
+
+    // ATIVAÇÃO DA BUSCA: Passando a camada colorida e a coluna NM_MUN
+    configurarBuscaMunicipios(camadaTerritorios);
 
     Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         dynamicTyping: false,
         complete: function(results) {
-            // Função para iniciar o processamento
             const processar = () => {
                 window.dadosCompletos = results.data.filter((item) => {
                     const lat = item.Latitude ? item.Latitude.toString().trim() : "";
                     const lng = item.Longitude ? item.Longitude.toString().trim() : "";
-                    
-                    // ATUALIZADO: Usando o novo nome da coluna "Código do município"
                     const ibge = item["Código do município"] ? item["Código do município"].toString().trim() : "";
                     
                     const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
@@ -207,9 +207,7 @@ Promise.all([
                 inicializarFiltrosDinamicos();
             };
 
-            // Se o Turf ainda não carregou, espera 300ms e tenta de novo
             if (typeof turf === 'undefined') {
-                console.log("Aguardando Turf.js para processamento preciso...");
                 setTimeout(processar, 300);
             } else {
                 processar();
@@ -218,6 +216,78 @@ Promise.all([
     });
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
+
+// =========================================
+// FUNÇÃO DE BUSCA E EFEITO VISUAL
+// =========================================
+
+let searchControl;
+
+function configurarBuscaMunicipios(camada) {
+    searchControl = new L.Control.Search({
+        layer: camada,
+        propertyName: 'NM_MUN', // Nome da coluna conforme solicitado
+        marker: false,
+        textPlaceholder: 'Buscar município...',
+        autoCollapse: false,
+        minLength: 1,
+        initial: false,
+        moveToLocation: function(latlng, title, map) {
+            const layers = camada.getLayers();
+            const layerAlvo = layers.find(l => {
+                const nome = l.feature.properties.NM_MUN;
+                return nome && nome.toString().toUpperCase() === title.toUpperCase();
+            });
+
+            if (layerAlvo) {
+                // Zoom no polígono
+                map.fitBounds(layerAlvo.getBounds(), { padding: [40, 40] });
+
+                // Lógica de Piscar (Amarelo e Azul)
+                let piscadas = 0;
+                
+                // Pega a cor original do território para retornar após o pisca
+                const terrNome = layerAlvo.feature.properties.Territóri || layerAlvo.feature.properties.Território || "";
+                const corOriginal = CORES_TERRITORIOS[terrNome.trim()] || "#F5F5F515";
+
+                const estiloOriginal = { 
+                    fillColor: corOriginal, 
+                    fillOpacity: 1, 
+                    weight: 0.5, 
+                    color: '#999' 
+                };
+                
+                const estiloDestaque = { 
+                    fillColor: '#ffff00', 
+                    fillOpacity: 0.8, 
+                    color: '#007bff', 
+                    weight: 6 
+                };
+
+                const intervalo = setInterval(() => {
+                    layerAlvo.setStyle(piscadas % 2 === 0 ? estiloDestaque : estiloOriginal);
+                    piscadas++;
+                    if (piscadas > 5) {
+                        clearInterval(intervalo);
+                        layerAlvo.setStyle(estiloOriginal);
+                    }
+                }, 400); 
+            }
+        },
+        filterData: function(text, records) {
+            var jsons = {};
+            var textClean = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            for(var key in records) {
+                var keyClean = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                if(keyClean.indexOf(textClean) > -1 ) {
+                    jsons[key] = records[key];
+                }
+            }
+            return jsons;
+        }
+    });
+    map.addControl(searchControl);
+}
 
 // =========================================
 // 4. RENDERIZAÇÃO DE PONTOS (COM NOVO AVISO)
@@ -256,7 +326,7 @@ function renderizarPontos(lista) {
         if (!isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
 
-            let urlIcone = 'icones/icones_legendas/padrao.png';
+            let urlIcone = 'icones/icones_legendas/sem_status.png';
             if (status === 'Não iniciado' || status === 'Contratado') {
                 urlIcone = 'icones/icones_legendas/nao_iniciado.png';
             } else if (status === 'Em Execução' || status === 'Em execução') {
