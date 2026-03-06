@@ -354,7 +354,6 @@ function renderizarPontos(lista) {
                     ${avisoAproximado}
                     <h4 style="color:#0352AA; margin-bottom:5px;">${item.Ação}</h4>
                     <p style="font-size:12px"><b>Município:</b> ${item.Município}</p>
-                    <p style="font-size:12px"><b>Status:</b> ${status}</p>
                     <button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')" style="cursor:pointer; background:#0352AA; color:white; border:none; padding:5px 10px; border-radius:4px; margin-top:5px; width:100%;">Ver Detalhes</button>
                 </div>`;
             
