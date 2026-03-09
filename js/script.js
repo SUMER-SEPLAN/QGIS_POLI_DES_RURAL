@@ -89,7 +89,11 @@ function gerarPontoNoMunicipio(municipioFeature) {
             tentativas++;
         }
 
-        if (!pontoValido) return gerarPontoSemBuffer(municipioFeature);
+        if (!pontoValido) {
+            console.warn("Não foi possível gerar ponto com buffer. Tentando sem buffer...");
+            return gerarPontoSemBuffer(municipioFeature);
+        }
+
         return [lat, lng];
     } catch (erro) {
         console.error("Erro ao gerar ponto:", erro);
@@ -123,6 +127,7 @@ function gerarPontoSemBuffer(municipioFeature) {
         }
         return [lat, lng];
     } catch (erro) {
+        console.error("Erro crítico ao gerar ponto:", erro);
         const bounds = L.geoJSON(municipioFeature).getBounds();
         return [bounds.getCenter().lat, bounds.getCenter().lng];
     }
@@ -138,14 +143,14 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, territoriosData, csvText]) => {
     
-    // CAMADA INVISÍVEL para lógica de pontos (municipios.geojson)
+    // CAMADA INVISÍVEL para lógica de pontos
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false }
     }).addTo(map);
 
-    // CAMADA COLORIDA visível (municipio_territorio.geojson)
-    L.geoJSON(territoriosData, {
+    // CAMADA COLORIDA (municipio_territorio.geojson) - USADA PARA A BUSCA
+    const camadaTerritorios = L.geoJSON(territoriosData, {
         style: function(feature) {
             const territorio = feature.properties.Territóri || feature.properties.Território || feature.properties.TERRITORIO || "";
             const cor = CORES_TERRITORIOS[territorio.trim()] || "#F5F5F515";
@@ -155,10 +160,13 @@ Promise.all([
                 weight: 0.5,
                 fillColor: cor,
                 fillOpacity: 1,
-                interactive: false
+                interactive: true // DEVE SER TRUE PARA A BUSCA FUNCIONAR
             };
         }
     }).addTo(map);
+
+    // ATIVAÇÃO DA BUSCA: Passando a camada colorida e a coluna NM_MUN
+    configurarBuscaMunicipios(camadaTerritorios);
 
     Papa.parse(csvText, {
         header: true,
@@ -169,12 +177,12 @@ Promise.all([
                 window.dadosCompletos = results.data.filter((item) => {
                     const lat = item.Latitude ? item.Latitude.toString().trim() : "";
                     const lng = item.Longitude ? item.Longitude.toString().trim() : "";
-                    const ibge = item["Código do município"] ? item["Código do município"].toString().trim() : "";
+                    const codMun = item["Código do município"] ? item["Código do município"].toString().trim() : "";
                     
                     const temCoordenada = lat !== "" && lng !== "" && lat !== "#REF!" && lng !== "#REF!";
-                    const temIBGE = ibge !== "";
+                    const temCodigo = codMun !== "";
 
-                    return temCoordenada || temIBGE;
+                    return temCoordenada || temCodigo;
                 });
 
                 renderizarPontos(window.dadosCompletos);
@@ -182,7 +190,6 @@ Promise.all([
             };
 
             if (typeof turf === 'undefined') {
-                console.log("Aguardando Turf.js para processamento preciso...");
                 setTimeout(processar, 300);
             } else {
                 processar();
@@ -192,16 +199,86 @@ Promise.all([
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
 
+// =========================================
+// FUNÇÃO DE BUSCA E EFEITO VISUAL
+// =========================================
+
+let searchControl;
+
+function configurarBuscaMunicipios(camada) {
+    searchControl = new L.Control.Search({
+        layer: camada,
+        propertyName: 'NM_MUN', // Nome da coluna conforme solicitado
+        marker: false,
+        textPlaceholder: 'Buscar município...',
+        autoCollapse: false,
+        minLength: 1,
+        initial: false,
+        moveToLocation: function(latlng, title, map) {
+            const layers = camada.getLayers();
+            const layerAlvo = layers.find(l => {
+                const nome = l.feature.properties.NM_MUN;
+                return nome && nome.toString().toUpperCase() === title.toUpperCase();
+            });
+
+            if (layerAlvo) {
+                // Zoom no polígono
+                map.fitBounds(layerAlvo.getBounds(), { padding: [40, 40] });
+
+                // Lógica de Piscar (Amarelo e Azul)
+                let piscadas = 0;
+                
+                // Pega a cor original do território para retornar após o pisca
+                const terrNome = layerAlvo.feature.properties.Territóri || layerAlvo.feature.properties.Território || "";
+                const corOriginal = CORES_TERRITORIOS[terrNome.trim()] || "#F5F5F515";
+
+                const estiloOriginal = { 
+                    fillColor: corOriginal, 
+                    fillOpacity: 1, 
+                    weight: 0.5, 
+                    color: '#999' 
+                };
+                
+                const estiloDestaque = { 
+                    fillColor: '#ffff00', 
+                    fillOpacity: 0.8, 
+                    color: '#007bff', 
+                    weight: 6 
+                };
+
+                const intervalo = setInterval(() => {
+                    layerAlvo.setStyle(piscadas % 2 === 0 ? estiloDestaque : estiloOriginal);
+                    piscadas++;
+                    if (piscadas > 5) {
+                        clearInterval(intervalo);
+                        layerAlvo.setStyle(estiloOriginal);
+                    }
+                }, 400); 
+            }
+        },
+        filterData: function(text, records) {
+            var jsons = {};
+            var textClean = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            for(var key in records) {
+                var keyClean = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                if(keyClean.indexOf(textClean) > -1 ) {
+                    jsons[key] = records[key];
+                }
+            }
+            return jsons;
+        }
+    });
+    map.addControl(searchControl);
+}
 
 // =========================================
-// 3.5. DEFINIÇÃO DE ÍCONES (NOVA LÓGICA)
+// DEFINIÇÃO DE ÍCONES DINÂMICOS (.SVG)
 // =========================================
 function definirIcone(acao, status) {
     const acaoNormalizada = acao ? acao.trim().toLowerCase() : "";
     const statusNormalizado = status ? status.trim().toLowerCase() : "";
 
-    // Define o prefixo do nome do arquivo baseado na Ação
-    let prefixoAcao = "padrao"; // Fallback
+    let prefixoAcao = "padrao";
     
     if (acaoNormalizada.includes("reforma da nova sede da seplan")) {
         prefixoAcao = "reforma_da_nova_sede_da_seplan";
@@ -222,29 +299,24 @@ function definirIcone(acao, status) {
     } else if (acaoNormalizada.includes("regularização fundiária")) {
         prefixoAcao = "regurarizacao_fundiaria";
     } else if (acaoNormalizada.includes("reforma das unidades regionais")) {
-        // Se houver ícone para reforma das unidades, coloque aqui.
-        // Vou usar um fallback temporário, ajuste conforme o nome do seu svg
         prefixoAcao = "reforma_das_unidades_regionais"; 
     }
 
-    // Define o sufixo baseado no status
     let sufixoStatus = "sem_status";
     if (statusNormalizado === "concluído" || statusNormalizado === "concluido") {
         sufixoStatus = "concluido";
-    } else if (statusNormalizado === "em execução") {
+    } else if (statusNormalizado === "em execução" || statusNormalizado === "em execucao") {
         sufixoStatus = "em_execucao";
     } else if (statusNormalizado === "não iniciado" || statusNormalizado === "contratado") {
         sufixoStatus = "nao_iniciado";
     }
 
-    // Monta a string final. Ex: icones/icones_camadas/cisterna_concluido.svg
-    // Ajuste aqui caso a extensão não seja .svg, ou a pasta seja diferente.
+    // Retorna o caminho mesclando Ação e Status
     return `icones/icones_camadas/${prefixoAcao}_${sufixoStatus}.svg`; 
 }
 
-
 // =========================================
-// 4. RENDERIZAÇÃO DE PONTOS (COM NOVO AVISO E ÍCONES)
+// 4. RENDERIZAÇÃO DE PONTOS
 // =========================================
 
 function renderizarPontos(lista) {
@@ -264,7 +336,7 @@ function renderizarPontos(lista) {
             lat = parseFloat(item.Latitude.replace(',', '.'));
             lng = parseFloat(item.Longitude.replace(',', '.'));
         } 
-        // Se não tiver GPS, usa o sorteio por Município
+        // Se não tiver GPS, usa o sorteio por Município usando a nova coluna
         else if (item["Código do município"] && window.dadosGlobais.municipios) {
             const munFeature = window.dadosGlobais.municipios.features.find(f => 
                 String(f.properties["Código do IBGE"]) === String(item["Código do município"])
@@ -280,17 +352,17 @@ function renderizarPontos(lista) {
         if (!isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
 
-            // NOVA LÓGICA DE ÍCONES! Chama a função
+            // Busca o ícone SVG correspondente
             const urlIcone = definirIcone(acaoItem, status);
 
             const marker = L.marker([lat, lng], { icon: L.icon({
                 iconUrl: urlIcone,
-                iconSize: [35, 35], // Ajuste o tamanho do SVG conforme achar melhor
-                iconAnchor: [17, 35], // O anchor também deve ser ajustado para centralizar a ponta do SVG no ponto 
+                iconSize: [35, 35], // Tamanho base para o seu SVG
+                iconAnchor: [17, 35], // Ponto de ancoragem centralizado embaixo
                 popupAnchor: [0, -35]
             })});
 
-            // NOVO TEXTO DE AVISO
+            // AVISO VISUAL DE SORTEIO
             const avisoAproximado = ehLocalizacaoAproximada 
                 ? `<div style="background: #fff3cd; color: #856404; font-size: 10px; padding: 5px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ffeeba;">
                     ⚠️ Localização aproximada (Gerada Aleatória)
@@ -312,7 +384,7 @@ function renderizarPontos(lista) {
 }
 
 // =========================================
-// 5. SIDEBAR (DETALHES ORIGINAL)
+// 5. SIDEBAR E DETALHES
 // =========================================
 
 window.abrirDetalhesSidebar = function(id) {
@@ -323,7 +395,7 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["ID","Código do município","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","Código do município","Subcomponente/ Subproduto","Data de Ordem de serviço","Vigência de execução do contrato","Meta Física Planejada","Meta Física Executada","Evidência (link)", "CPF", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
 
     let html = `<h3>${p.Ação}</h3>`;
     
