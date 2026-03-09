@@ -57,7 +57,6 @@ map.addLayer(window.clusterPontos);
 // 2. FUNÇÃO PARA SORTEIO DE PONTOS (COM VALIDAÇÃO E BUFFER DE 2KM)
 // =========================================
 function gerarPontoNoMunicipio(municipioFeature) {
-    // Se o turf não carregou, usa método simplificado
     if (typeof turf === 'undefined') {
         console.warn("Turf.js não disponível. Usando centróide do município.");
         const bounds = L.geoJSON(municipioFeature).getBounds();
@@ -65,18 +64,14 @@ function gerarPontoNoMunicipio(municipioFeature) {
     }
 
     try {
-        // Cria um buffer NEGATIVO de -2km
-        // Isso garante que o ponto fique 2km dentro do limite
         const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
         const poligonoComBuffer = turf.buffer(poligonoOriginal, -1, { units: 'kilometers' });
         
-        // Se o buffer negativo resultar em null ou polígono vazio, usa o original
         if (!poligonoComBuffer || !poligonoComBuffer.geometry) {
             console.warn("Município muito pequeno para buffer de 2km. Usando polígono original.");
             return gerarPontoSemBuffer(municipioFeature);
         }
 
-        // Pega os bounds do polígono com buffer
         const bounds = turf.bbox(poligonoComBuffer);
         const [west, south, east, north] = bounds;
         
@@ -84,25 +79,17 @@ function gerarPontoNoMunicipio(municipioFeature) {
         let tentativas = 0;
         const maxTentativas = 100;
 
-        // Tenta até 100 vezes encontrar um ponto DENTRO do polígono com buffer
         while (!pontoValido && tentativas < maxTentativas) {
             lat = south + Math.random() * (north - south);
             lng = west + Math.random() * (east - west);
-            
             const pontoSorteado = turf.point([lng, lat]);
-            
             if (turf.booleanPointInPolygon(pontoSorteado, poligonoComBuffer)) {
                 pontoValido = true;
             }
             tentativas++;
         }
 
-        // Se não encontrou ponto válido após 100 tentativas, tenta sem buffer
-        if (!pontoValido) {
-            console.warn("Não foi possível gerar ponto com buffer. Tentando sem buffer...");
-            return gerarPontoSemBuffer(municipioFeature);
-        }
-
+        if (!pontoValido) return gerarPontoSemBuffer(municipioFeature);
         return [lat, lng];
     } catch (erro) {
         console.error("Erro ao gerar ponto:", erro);
@@ -110,42 +97,32 @@ function gerarPontoNoMunicipio(municipioFeature) {
     }
 }
 
-// Função auxiliar para gerar ponto sem buffer (fallback)
 function gerarPontoSemBuffer(municipioFeature) {
     if (typeof turf === 'undefined') {
         const bounds = L.geoJSON(municipioFeature).getBounds();
         return [bounds.getCenter().lat, bounds.getCenter().lng];
     }
-
     try {
         const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
         const bounds = turf.bbox(poligonoOriginal);
         const [west, south, east, north] = bounds;
-        
         let lat, lng, pontoValido = false;
         let tentativas = 0;
-
         while (!pontoValido && tentativas < 100) {
             lat = south + Math.random() * (north - south);
             lng = west + Math.random() * (east - west);
-            
             const pontoSorteado = turf.point([lng, lat]);
-            
             if (turf.booleanPointInPolygon(pontoSorteado, poligonoOriginal)) {
                 pontoValido = true;
             }
             tentativas++;
         }
-
         if (!pontoValido) {
-            // Retorna centróide como último recurso
             const bounds = L.geoJSON(municipioFeature).getBounds();
             return [bounds.getCenter().lat, bounds.getCenter().lng];
         }
-
         return [lat, lng];
     } catch (erro) {
-        console.error("Erro crítico ao gerar ponto:", erro);
         const bounds = L.geoJSON(municipioFeature).getBounds();
         return [bounds.getCenter().lat, bounds.getCenter().lng];
     }
@@ -161,14 +138,14 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, territoriosData, csvText]) => {
     
-    // CAMADA INVISÍVEL para lógica de pontos
+    // CAMADA INVISÍVEL para lógica de pontos (municipios.geojson)
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false }
     }).addTo(map);
 
-    // CAMADA COLORIDA (municipio_territorio.geojson) - USADA PARA A BUSCA
-    const camadaTerritorios = L.geoJSON(territoriosData, {
+    // CAMADA COLORIDA visível (municipio_territorio.geojson)
+    L.geoJSON(territoriosData, {
         style: function(feature) {
             const territorio = feature.properties.Territóri || feature.properties.Território || feature.properties.TERRITORIO || "";
             const cor = CORES_TERRITORIOS[territorio.trim()] || "#F5F5F515";
@@ -178,13 +155,10 @@ Promise.all([
                 weight: 0.5,
                 fillColor: cor,
                 fillOpacity: 1,
-                interactive: true // DEVE SER TRUE PARA A BUSCA FUNCIONAR
+                interactive: false
             };
         }
     }).addTo(map);
-
-    // ATIVAÇÃO DA BUSCA: Passando a camada colorida e a coluna NM_MUN
-    configurarBuscaMunicipios(camadaTerritorios);
 
     Papa.parse(csvText, {
         header: true,
@@ -208,6 +182,7 @@ Promise.all([
             };
 
             if (typeof turf === 'undefined') {
+                console.log("Aguardando Turf.js para processamento preciso...");
                 setTimeout(processar, 300);
             } else {
                 processar();
@@ -217,80 +192,59 @@ Promise.all([
 
 }).catch(err => console.error("Erro ao carregar dados:", err));
 
+
 // =========================================
-// FUNÇÃO DE BUSCA E EFEITO VISUAL
+// 3.5. DEFINIÇÃO DE ÍCONES (NOVA LÓGICA)
 // =========================================
+function definirIcone(acao, status) {
+    const acaoNormalizada = acao ? acao.trim().toLowerCase() : "";
+    const statusNormalizado = status ? status.trim().toLowerCase() : "";
 
-let searchControl;
+    // Define o prefixo do nome do arquivo baseado na Ação
+    let prefixoAcao = "padrao"; // Fallback
+    
+    if (acaoNormalizada.includes("reforma da nova sede da seplan")) {
+        prefixoAcao = "reforma_da_nova_sede_da_seplan";
+    } else if (acaoNormalizada.includes("construção de passagem molhada")) {
+        prefixoAcao = "construcao_de_passagem_molhada";
+    } else if (acaoNormalizada.includes("cisterna")) {
+        prefixoAcao = "cisterna";
+    } else if (acaoNormalizada === "pap") {
+        prefixoAcao = "pap";
+    } else if (acaoNormalizada.includes("estações meteorológicas")) {
+        prefixoAcao = "estacoes_meteorologicas";
+    } else if (acaoNormalizada.includes("equipamentos de informática")) {
+        prefixoAcao = "equipamentos_de_informatica";
+    } else if (acaoNormalizada.includes("campanha de educação ambiental")) {
+        prefixoAcao = "campanha_de_educacao_ambiental";
+    } else if (acaoNormalizada.includes("curso em meio ambiente")) {
+        prefixoAcao = "curso_em_meio_ambiente_para_jovens";
+    } else if (acaoNormalizada.includes("regularização fundiária")) {
+        prefixoAcao = "regurarizacao_fundiaria";
+    } else if (acaoNormalizada.includes("reforma das unidades regionais")) {
+        // Se houver ícone para reforma das unidades, coloque aqui.
+        // Vou usar um fallback temporário, ajuste conforme o nome do seu svg
+        prefixoAcao = "reforma_das_unidades_regionais"; 
+    }
 
-function configurarBuscaMunicipios(camada) {
-    searchControl = new L.Control.Search({
-        layer: camada,
-        propertyName: 'NM_MUN', // Nome da coluna conforme solicitado
-        marker: false,
-        textPlaceholder: 'Buscar município...',
-        autoCollapse: false,
-        minLength: 1,
-        initial: false,
-        moveToLocation: function(latlng, title, map) {
-            const layers = camada.getLayers();
-            const layerAlvo = layers.find(l => {
-                const nome = l.feature.properties.NM_MUN;
-                return nome && nome.toString().toUpperCase() === title.toUpperCase();
-            });
+    // Define o sufixo baseado no status
+    let sufixoStatus = "sem_status";
+    if (statusNormalizado === "concluído" || statusNormalizado === "concluido") {
+        sufixoStatus = "concluido";
+    } else if (statusNormalizado === "em execução") {
+        sufixoStatus = "em_execucao";
+    } else if (statusNormalizado === "não iniciado" || statusNormalizado === "contratado") {
+        sufixoStatus = "nao_iniciado";
+    }
 
-            if (layerAlvo) {
-                // Zoom no polígono
-                map.fitBounds(layerAlvo.getBounds(), { padding: [40, 40] });
-
-                // Lógica de Piscar (Amarelo e Azul)
-                let piscadas = 0;
-                
-                // Pega a cor original do território para retornar após o pisca
-                const terrNome = layerAlvo.feature.properties.Territóri || layerAlvo.feature.properties.Território || "";
-                const corOriginal = CORES_TERRITORIOS[terrNome.trim()] || "#F5F5F515";
-
-                const estiloOriginal = { 
-                    fillColor: corOriginal, 
-                    fillOpacity: 1, 
-                    weight: 0.5, 
-                    color: '#999' 
-                };
-                
-                const estiloDestaque = { 
-                    fillColor: '#ffff00', 
-                    fillOpacity: 0.8, 
-                    color: '#007bff', 
-                    weight: 6 
-                };
-
-                const intervalo = setInterval(() => {
-                    layerAlvo.setStyle(piscadas % 2 === 0 ? estiloDestaque : estiloOriginal);
-                    piscadas++;
-                    if (piscadas > 5) {
-                        clearInterval(intervalo);
-                        layerAlvo.setStyle(estiloOriginal);
-                    }
-                }, 400); 
-            }
-        },
-        filterData: function(text, records) {
-            var jsons = {};
-            var textClean = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-            for(var key in records) {
-                var keyClean = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                if(keyClean.indexOf(textClean) > -1 ) {
-                    jsons[key] = records[key];
-                }
-            }
-            return jsons;
-        }
-    });
-    map.addControl(searchControl);
+    // Monta a string final. Ex: icones/icones_camadas/cisterna_concluido.svg
+    // Ajuste aqui caso a extensão não seja .svg, ou a pasta seja diferente.
+    return `icones/icones_camadas/${prefixoAcao}_${sufixoStatus}.svg`; 
 }
 
+
 // =========================================
-// 4. RENDERIZAÇÃO DE PONTOS (COM NOVO AVISO)
+// 4. RENDERIZAÇÃO DE PONTOS (COM NOVO AVISO E ÍCONES)
 // =========================================
 
 function renderizarPontos(lista) {
@@ -300,6 +254,7 @@ function renderizarPontos(lista) {
     lista.forEach((item, index) => {
         const id = "item_" + index; 
         const status = item['Status da ação'] ? item['Status da ação'].trim() : "";
+        const acaoItem = item['Ação'] ? item['Ação'].trim() : "";
         
         let lat, lng;
         let ehLocalizacaoAproximada = false;
@@ -310,7 +265,6 @@ function renderizarPontos(lista) {
             lng = parseFloat(item.Longitude.replace(',', '.'));
         } 
         // Se não tiver GPS, usa o sorteio por Município
-        // ATUALIZADO: Comparando com "Código do município"
         else if (item["Código do município"] && window.dadosGlobais.municipios) {
             const munFeature = window.dadosGlobais.municipios.features.find(f => 
                 String(f.properties["Código do IBGE"]) === String(item["Código do município"])
@@ -326,19 +280,13 @@ function renderizarPontos(lista) {
         if (!isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
 
-            let urlIcone = 'icones/icones_legendas/sem_status.png';
-            if (status === 'Não iniciado' || status === 'Contratado') {
-                urlIcone = 'icones/icones_legendas/nao_iniciado.png';
-            } else if (status === 'Em Execução' || status === 'Em execução') {
-                urlIcone = 'icones/icones_legendas/em_execucao.png';
-            } else if (status === 'Concluído' || status === 'Concluido') {
-                urlIcone = 'icones/icones_legendas/concluido.png';
-            }
+            // NOVA LÓGICA DE ÍCONES! Chama a função
+            const urlIcone = definirIcone(acaoItem, status);
 
             const marker = L.marker([lat, lng], { icon: L.icon({
                 iconUrl: urlIcone,
-                iconSize: [25, 35],
-                iconAnchor: [12, 35],
+                iconSize: [35, 35], // Ajuste o tamanho do SVG conforme achar melhor
+                iconAnchor: [17, 35], // O anchor também deve ser ajustado para centralizar a ponta do SVG no ponto 
                 popupAnchor: [0, -35]
             })});
 
@@ -352,7 +300,7 @@ function renderizarPontos(lista) {
             let htmlPopup = `
                 <div style="min-width:200px">
                     ${avisoAproximado}
-                    <h4 style="color:#0352AA; margin-bottom:5px;">${item.Ação}</h4>
+                    <h4 style="color:#0352AA; margin-bottom:5px;">${acaoItem}</h4>
                     <p style="font-size:12px"><b>Município:</b> ${item.Município}</p>
                     <button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')" style="cursor:pointer; background:#0352AA; color:white; border:none; padding:5px 10px; border-radius:4px; margin-top:5px; width:100%;">Ver Detalhes</button>
                 </div>`;
@@ -375,7 +323,7 @@ window.abrirDetalhesSidebar = function(id) {
     docPai.getElementById('sidebar-container').classList.remove('closed');
     docPai.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["ID","Código do município","Subcomponente/ Subproduto","Data de Ordem de serviço","Vigência de execução do contrato","Meta Física Planejada","Meta Física Executada","Evidência (link)", "CPF", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","Código do município","Evidência (link)", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
 
     let html = `<h3>${p.Ação}</h3>`;
     
