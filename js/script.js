@@ -1,7 +1,7 @@
 // =========================================
 // 1. CONFIGURAÇÕES E URL
 // =========================================
-const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROnRELmtDRjl12Rqtggn-OB7Gpn2uwAafT_wcc8lpYbo7TJ19tptGS9rQWW-4BGw/pub?gid=1496525997&single=true&output=csv";
+const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR53uLoqV39Zf9M0eP7yFf235VWo3ke9yHEZGhIrsEDlJKauvPxvMiIhppIu6RVLUhSWpOwLWOlY7hY/pub?gid=1458311235&single=true&output=csv";
 
 var initialBounds = [[-18, -60], [10, -30]];
 
