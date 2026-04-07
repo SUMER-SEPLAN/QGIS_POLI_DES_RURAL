@@ -270,8 +270,9 @@ function definirIcone(acao, status) {
     
     if (acaoNormalizada.includes("reforma da nova sede da seplan")) {
         prefixoAcao = "reforma_da_nova_sede_da_seplan";
-    } else if (acaoNormalizada.includes("construção de passagem molhada")) {
-        prefixoAcao = "construcao_de_passagem_molhada";
+    } else if (acaoNormalizada.includes("passagem molhada")) { 
+        // ATUALIZADO: Agora busca apenas por "passagem molhada"
+        prefixoAcao = "construcao_de_passagem_molhada"; 
     } else if (acaoNormalizada.includes("cisterna")) {
         prefixoAcao = "cisterna";
     } else if (acaoNormalizada === "pap") {
@@ -289,7 +290,6 @@ function definirIcone(acao, status) {
     } else if (acaoNormalizada.includes("reforma das unidades regionais")) {
         prefixoAcao = "reforma_das_unidades_regionais"; 
     } else if (acaoNormalizada.includes("regularização ambiental rural")) {
-        // NOVA AÇÃO ADICIONADA AQUI
         prefixoAcao = "regularizacao_ambiental_rural"; 
     }
 
