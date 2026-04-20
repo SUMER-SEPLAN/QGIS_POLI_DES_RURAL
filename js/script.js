@@ -266,12 +266,12 @@ function definirIcone(acao, status) {
     const acaoNormalizada = acao ? acao.trim().toLowerCase() : "";
     const statusNormalizado = status ? status.trim().toLowerCase() : "";
 
-    let prefixoAcao = "padrao";
+    // ALTERAÇÃO AQUI: Se a ação não for encontrada na lista abaixo, ele usa "generico"
+    let prefixoAcao = "generico";
     
     if (acaoNormalizada.includes("reforma da nova sede da seplan")) {
         prefixoAcao = "reforma_da_nova_sede_da_seplan";
     } else if (acaoNormalizada.includes("passagem molhada")) { 
-        // ATUALIZADO: Agora busca apenas por "passagem molhada"
         prefixoAcao = "construcao_de_passagem_molhada"; 
     } else if (acaoNormalizada.includes("cisterna")) {
         prefixoAcao = "cisterna";
@@ -302,6 +302,7 @@ function definirIcone(acao, status) {
         sufixoStatus = "nao_iniciado";
     }
 
+    // Retorna o caminho mesclando Ação e Status (Ex: generico_em_execucao.svg)
     return `icones/icones_camadas/${prefixoAcao}_${sufixoStatus}.svg`; 
 }
 
