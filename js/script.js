@@ -57,83 +57,38 @@ window.clusterPontos = L.markerClusterGroup({
 map.addLayer(window.clusterPontos);
 
 // =========================================
-// 2. FUNÇÃO PARA SORTEIO DE PONTOS (BACKUP DE EMERGÊNCIA)
+// 2. CONVERSOR UNIVERSAL DE COORDENADAS (DD, DDM, DMS)
 // =========================================
-function gerarPontoNoMunicipio(municipioFeature) {
-    if (typeof turf === 'undefined') {
-        const bounds = L.geoJSON(municipioFeature).getBounds();
-        return [bounds.getCenter().lat, bounds.getCenter().lng];
+function parseCoordenada(coordStr) {
+    if (!coordStr || coordStr === "#REF!") return null;
+    
+    // Converte tudo para maiúsculo, tira espaços inúteis e troca vírgula por ponto
+    let str = coordStr.toString().trim().toUpperCase().replace(/,/g, '.');
+
+    // 1. Tenta DD normal estrito (Ex: -7.063178 ou -7)
+    if (/^-?\d+\.\d+$/.test(str) || /^-?\d+$/.test(str)) {
+        return parseFloat(str);
     }
 
-    try {
-        const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
-        const poligonoComBuffer = turf.buffer(poligonoOriginal, -1, { units: 'kilometers' });
-        
-        if (!poligonoComBuffer || !poligonoComBuffer.geometry) {
-            return gerarPontoSemBuffer(municipioFeature);
-        }
+    // 2. Tenta extrair os números se for DMS ou DDM (Ex: 7°39.8480'S)
+    const numeros = str.match(/\d+(?:\.\d+)?/g);
+    if (!numeros || numeros.length < 2) return null;
 
-        const bounds = turf.bbox(poligonoComBuffer);
-        const [west, south, east, north] = bounds;
-        
-        let lat, lng, pontoValido = false;
-        let tentativas = 0;
-        const maxTentativas = 100;
+    let graus = parseFloat(numeros[0]) || 0;
+    let minutos = parseFloat(numeros[1]) || 0;
+    let segundos = numeros.length > 2 ? parseFloat(numeros[2]) : 0;
 
-        while (!pontoValido && tentativas < maxTentativas) {
-            lat = south + Math.random() * (north - south);
-            lng = west + Math.random() * (east - west);
-            const pontoSorteado = turf.point([lng, lat]);
-            if (turf.booleanPointInPolygon(pontoSorteado, poligonoComBuffer)) {
-                pontoValido = true;
-            }
-            tentativas++;
-        }
+    let decimal = graus + (minutos / 60) + (segundos / 3600);
 
-        if (!pontoValido) return gerarPontoSemBuffer(municipioFeature);
-        return [lat, lng];
-    } catch (erro) {
-        return gerarPontoSemBuffer(municipioFeature);
+    if (str.includes('S') || str.includes('W') || str.includes('O') || str.startsWith('-')) {
+        decimal = Math.abs(decimal) * -1;
+    } else if (str.includes('N') || str.includes('E') || str.includes('L')) {
+        decimal = Math.abs(decimal);
     }
-}
 
-function gerarPontoSemBuffer(municipioFeature) {
-    if (typeof turf === 'undefined') {
-        const bounds = L.geoJSON(municipioFeature).getBounds();
-        return [bounds.getCenter().lat, bounds.getCenter().lng];
-    }
-    try {
-        const poligonoOriginal = municipioFeature.geometry ? municipioFeature : municipioFeature.geometry;
-        const bounds = turf.bbox(poligonoOriginal);
-        const [west, south, east, north] = bounds;
-        let lat, lng, pontoValido = false;
-        let tentativas = 0;
-        while (!pontoValido && tentativas < 100) {
-            lat = south + Math.random() * (north - south);
-            lng = west + Math.random() * (east - west);
-            const pontoSorteado = turf.point([lng, lat]);
-            if (turf.booleanPointInPolygon(pontoSorteado, poligonoOriginal)) {
-                pontoValido = true;
-            }
-            tentativas++;
-        }
-        if (!pontoValido) {
-            const bounds = L.geoJSON(municipioFeature).getBounds();
-            return [bounds.getCenter().lat, bounds.getCenter().lng];
-        }
-        return [lat, lng];
-    } catch (erro) {
-        const bounds = L.geoJSON(municipioFeature).getBounds();
-        return [bounds.getCenter().lat, bounds.getCenter().lng];
-    }
-}
+    if(isNaN(decimal)) return null;
 
-// Função para validar se a string é uma coordenada decimal limpa
-function ehCoordenadaValida(coordStr) {
-    if (!coordStr) return false;
-    const limpo = coordStr.toString().trim();
-    const regex = /^-?\d+[\.,]\d+$/; 
-    return regex.test(limpo);
+    return decimal;
 }
 
 // =========================================
@@ -146,7 +101,7 @@ Promise.all([
     fetch(URL_PLANILHA).then(res => res.text())
 ]).then(([municipiosData, territoriosData, csvText]) => {
     
-    // CAMADA INVISÍVEL para lógica de pontos (backup)
+    // CAMADA INVISÍVEL
     window.dadosGlobais = { municipios: municipiosData };
     L.geoJSON(municipiosData, {
         style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false }
@@ -182,7 +137,10 @@ Promise.all([
                     const lng = item.Longitude ? item.Longitude.toString().trim() : "";
                     const codMun = item["Código do município"] ? item["Código do município"].toString().trim() : "";
                     
-                    const temCoordenada = ehCoordenadaValida(lat) && ehCoordenadaValida(lng);
+                    const latConvertida = parseCoordenada(lat);
+                    const lngConvertida = parseCoordenada(lng);
+                    
+                    const temCoordenada = latConvertida !== null && lngConvertida !== null;
                     const temCodigo = codMun !== "";
 
                     return temCoordenada || temCodigo;
@@ -192,11 +150,7 @@ Promise.all([
                 inicializarFiltrosDinamicos();
             };
 
-            if (typeof turf === 'undefined') {
-                setTimeout(processar, 300);
-            } else {
-                processar();
-            }
+            processar(); // Vai direto sem depender de Turf.js
         }
     });
 
@@ -266,7 +220,6 @@ function definirIcone(acao, status) {
     const acaoNormalizada = acao ? acao.trim().toLowerCase() : "";
     const statusNormalizado = status ? status.trim().toLowerCase() : "";
 
-    // ALTERAÇÃO AQUI: Se a ação não for encontrada na lista abaixo, ele usa "generico"
     let prefixoAcao = "generico";
     
     if (acaoNormalizada.includes("reforma da nova sede da seplan")) {
@@ -302,19 +255,17 @@ function definirIcone(acao, status) {
         sufixoStatus = "nao_iniciado";
     }
 
-    // Retorna o caminho mesclando Ação e Status (Ex: generico_em_execucao.svg)
     return `icones/icones_camadas/${prefixoAcao}_${sufixoStatus}.svg`; 
 }
 
 // =========================================
-// 4. RENDERIZAÇÃO DE PONTOS (COM DICIONÁRIO E BACKUP)
+// 4. RENDERIZAÇÃO DE PONTOS
 // =========================================
 
 function renderizarPontos(lista) {
     window.clusterPontos.clearLayers();
     window.todasObras = {}; 
     
-    // Zera os contadores sempre que os pontos forem re-renderizados (ex: nos filtros)
     window.contadorMunicipios = {}; 
 
     lista.forEach((item, index) => {
@@ -329,13 +280,16 @@ function renderizarPontos(lista) {
         const strLat = item.Latitude ? item.Latitude.toString().trim() : "";
         const strLng = item.Longitude ? item.Longitude.toString().trim() : "";
 
-        // 1. TENTA GPS PRIMEIRO
-        if (ehCoordenadaValida(strLat) && ehCoordenadaValida(strLng)) {
-            lat = parseFloat(strLat.replace(',', '.'));
-            lng = parseFloat(strLng.replace(',', '.'));
+        const latConvertida = parseCoordenada(strLat);
+        const lngConvertida = parseCoordenada(strLng);
+
+        // 1. TENTA GPS
+        if (latConvertida !== null && lngConvertida !== null) {
+            lat = latConvertida;
+            lng = lngConvertida;
             pontoEncontrado = true;
         } 
-        // 2. TENTA USAR O DICIONÁRIO DE COORDENADAS PRÉ-GERADAS (MUITO RÁPIDO)
+        // 2. TENTA DICIONÁRIO
         else if (item["Código do município"]) {
             let codMun = item["Código do município"].toString().trim();
             
@@ -346,25 +300,10 @@ function renderizarPontos(lista) {
 
                 let indiceAtual = window.contadorMunicipios[codMun];
                 
-                // Se ainda há coordenadas no estoque de 400
                 if (indiceAtual < DICIONARIO_COORDENADAS[codMun].length) {
                     lat = DICIONARIO_COORDENADAS[codMun][indiceAtual][0];
                     lng = DICIONARIO_COORDENADAS[codMun][indiceAtual][1];
                     window.contadorMunicipios[codMun]++;
-                    ehLocalizacaoAproximada = true;
-                    pontoEncontrado = true;
-                }
-            }
-            
-            // 3. SE O DICIONÁRIO ACABOU OU FALHOU, USA TURF.JS (BACKUP SEGURO)
-            if (!pontoEncontrado && window.dadosGlobais.municipios) {
-                const munFeature = window.dadosGlobais.municipios.features.find(f => 
-                    String(f.properties["Código do IBGE"]) === String(codMun)
-                );
-                if (munFeature) {
-                    const pt = gerarPontoNoMunicipio(munFeature);
-                    lat = pt[0];
-                    lng = pt[1];
                     ehLocalizacaoAproximada = true;
                     pontoEncontrado = true;
                 }
