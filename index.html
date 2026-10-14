@@ -5,12 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Política Desenv. Rural</title>
     <link rel="icon" href="icones/icones_menu/dados_pi.png" type="image/png">
+    
+    <!-- CSS Unificados -->
     <link rel="stylesheet" href="css/layout.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Leaflet e Plugins CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.js"></script>
 
+    <!-- Bibliotecas JS Base -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.1/slimselect.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.js"></script>
+
+    <!-- Arquivos Locais Transformados (Modo Offline) -->
+    <script src="js/municipiosData.js"></script>
+    <script src="js/territoriosData.js"></script>
+    <script src="js/dicionario_coordenadas.js"></script>
 </head>
 <body>
 
@@ -66,7 +80,7 @@
 
                         <div class="filter-actions">
                             <button type="button" class="btn-limpar" onclick="limparTodosFiltros()">Limpar</button>
-                            <button type="button" class="btn-aplicar" onclick="executarFiltroIframe()">Filtrar</button>
+                            <button type="button" class="btn-aplicar" onclick="window.aplicarFiltros()">Filtrar</button>
                         </div>
                     </form>
                 </div>
@@ -75,22 +89,10 @@
                     <h3>Legendas</h3>
                     <div class="legenda-grupo">
                         <h4>SITUAÇÃO</h4>
-                        <div class="legenda-item">
-                            <img src="icones/icones_legendas/sem_status.png" alt="Sem Status">
-                            <span>Sem status</span>
-                        </div>
-                        <div class="legenda-item">
-                            <img src="icones/icones_legendas/nao_iniciado.png" alt="Contratado">
-                            <span>Não iniciado</span>
-                        </div>
-                        <div class="legenda-item">
-                            <img src="icones/icones_legendas/em_execucao.png" alt="Em Execução">
-                            <span>Em Execução</span>
-                        </div>
-                        <div class="legenda-item">
-                            <img src="icones/icones_legendas/concluido.png" alt="Concluído">
-                            <span>Concluído</span>
-                        </div>
+                        <div class="legenda-item"><img src="icones/icones_legendas/sem_status.png" alt="Sem Status"><span>Sem status</span></div>
+                        <div class="legenda-item"><img src="icones/icones_legendas/nao_iniciado.png" alt="Contratado"><span>Não iniciado</span></div>
+                        <div class="legenda-item"><img src="icones/icones_legendas/em_execucao.png" alt="Em Execução"><span>Em Execução</span></div>
+                        <div class="legenda-item"><img src="icones/icones_legendas/concluido.png" alt="Concluído"><span>Concluído</span></div>
                     </div>
                     <div class="legenda-grupo" style="margin-top: 20px;">
                         <h4>AÇÃO</h4>
@@ -112,17 +114,14 @@
                     <h3>Sobre a Plataforma</h3>
                     <p>O <strong>Mapa de Política de Desenvolvimento Rural</strong> é um atlas interativo para o monitoramento dos programas sob supervisão da <strong>SUTEF</strong>.</p>
                     <p style="margin-top: 10px;">Este grupo de apoio estrutura os dados georreferenciados para facilitar a gestão estratégica de programas fundamentais para o estado.</p>
-                    
                     <h4 style="margin-top: 20px; color: #0352AA;">Programas Monitorados:</h4>
                     <ul class="lista-sobre">
                         <li><strong>📍 PSI:</strong> Projeto de Sustentabilidade Hídrica.</li>
                         <li><strong>📍 Pilares:</strong> Fortalecimento da agricultura familiar.</li>
                         <li><strong>📍 Sertão Vivo:</strong> Resiliência climática e produtiva.</li>
                     </ul>
-
                     <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;">
-                        <p><strong>Desenvolvimento:</strong><br>
-                        Lucas Mendes</p>
+                        <p><strong>Desenvolvimento:</strong><br>Lucas Mendes</p>
                     </div>
                 </div>
             </div>
@@ -131,16 +130,17 @@
         <div id="mobile-overlay" class="mobile-overlay"></div>
 
         <div class="map-wrapper">
-            <iframe src="mapa_politica_desenvolvimento_rural.html" frameborder="0" id="map-frame"></iframe>
+            <div id="map" style="width: 100%; height: 100%;"></div>
             <div class="layer-switcher">
-                <button id="btn-mapa" class="layer-btn active" onclick="mudarBase('mapa')">Mapa</button>
-                <button id="btn-satelite" class="layer-btn" onclick="mudarBase('satelite')">Satélite</button>
+                <!-- Classes ajustadas para chamar o script e aplicar a animação correta -->
+                <button id="btn-mapa" class="layer-btn active" onclick="window.trocarCamadaBase('mapa')">Mapa</button>
+                <button id="btn-satelite" class="layer-btn" onclick="window.trocarCamadaBase('satelite')">Satélite</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. CONTROLE DA INTERFACE (SIDEBAR) ---
+        // Controle Básico de Interface
         const toggleBtn = document.getElementById('menu-toggle');
         const sidebarContainer = document.getElementById('sidebar-container');
         const iconItems = document.querySelectorAll('.icon-item');
@@ -158,27 +158,11 @@
             });
         });
 
-        // --- 2. FUNÇÃO DE FILTRAGEM ---
-        function executarFiltroIframe() {
-            const iframe = document.getElementById('map-frame');
-            // Verifica se a função aplicarFiltros existe no contexto do iframe
-            if (iframe && iframe.contentWindow && iframe.contentWindow.parent.aplicarFiltros) {
-                iframe.contentWindow.parent.aplicarFiltros();
-            }
-        }
-
-        // --- 3. INICIALIZAÇÃO DOS FILTROS (SLIM SELECT) ---
+        // Inicialização do Visual dos Filtros SlimSelect
         window.selectsInstances = {};
         window.iniciarSlimSelect = function() {
             if (typeof SlimSelect === 'undefined') return setTimeout(window.iniciarSlimSelect, 100);
-
-            // IDs atualizados para os novos filtros
-            const ids = [
-                'filtro-orgao', 'filtro-acao', 'filtro-tipo-acao', 'filtro-municipio',
-                'filtro-comunidade', 'filtro-territorio', 'filtro-componente', 
-                'filtro-status', 'filtro-tradicional', 'filtro-genero'
-            ];
-
+            const ids = ['filtro-orgao', 'filtro-acao', 'filtro-tipo-acao', 'filtro-municipio', 'filtro-comunidade', 'filtro-territorio', 'filtro-componente', 'filtro-status', 'filtro-tradicional', 'filtro-genero'];
             ids.forEach(id => {
                 if (window.selectsInstances[id]) window.selectsInstances[id].destroy();
                 const el = document.getElementById(id);
@@ -193,29 +177,19 @@
             });
         };
 
-        // --- 4. ALTERNAR CAMADAS DO MAPA ---
-        function mudarBase(tipo) {
-            document.querySelectorAll('.layer-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('btn-' + tipo).classList.add('active');
-            const iframe = document.getElementById('map-frame');
-            if (iframe && iframe.contentWindow && iframe.contentWindow.trocarCamadaBase) {
-                iframe.contentWindow.trocarCamadaBase(tipo);
-            }
-        }
-
-        // --- 5. LIMPAR FILTROS ---
+        // Função do botão Limpar
         function limparTodosFiltros() {
-            // Limpa as seleções visuais do SlimSelect
             Object.keys(window.selectsInstances).forEach(id => {
                 window.selectsInstances[id].set([]); 
             });
 
-            // Reseta o mapa para o estado original
-            const iframe = document.getElementById('map-frame');
-            if (iframe && iframe.contentWindow && iframe.contentWindow.dadosCompletos) {
-                iframe.contentWindow.renderizarPontos(iframe.contentWindow.dadosCompletos);
+            if (window.renderizarPontos && window.dadosCompletos) {
+                window.renderizarPontos(window.dadosCompletos);
             }
         }
     </script>
+    
+    <!-- O Script Principal sempre por último -->
+    <script src="js/script.js"></script>
 </body>
 </html>
