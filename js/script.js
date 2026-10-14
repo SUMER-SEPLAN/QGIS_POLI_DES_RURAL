@@ -32,7 +32,9 @@ map.addLayer(window.clusterPontos);
 function parseCoordenada(coordStr) {
     if (!coordStr || coordStr === "#REF!") return null;
     let str = coordStr.toString().trim().toUpperCase().replace(/,/g, '.');
-    if (/^-?\d+\.\d+$/.test(str) || /^-?\d+$/.test(str)) return parseFloat(str);
+    
+    // CORREÇÃO: Validação limpa que não causa erro no VS Code
+    if (!isNaN(str) && str !== "") return parseFloat(str);
 
     const numeros = str.match(/\d+(?:\.\d+)?/g);
     if (!numeros || numeros.length < 2) return null;
@@ -48,22 +50,36 @@ function parseCoordenada(coordStr) {
     return isNaN(decimal) ? null : decimal;
 }
 
-function definirIcone(acao, status) {
+function definirIcone(acao, tipoContratacao, status) {
     const acaoNormalizada = acao ? acao.trim().toLowerCase() : "";
+    const tipoNormalizado = tipoContratacao ? tipoContratacao.trim().toLowerCase() : "";
     const statusNormalizado = status ? status.trim().toLowerCase() : "";
+
     let prefixoAcao = "generico";
     
-    if (acaoNormalizada.includes("reforma da nova sede da seplan")) prefixoAcao = "reforma_da_nova_sede_da_seplan";
-    else if (acaoNormalizada.includes("passagem molhada")) prefixoAcao = "construcao_de_passagem_molhada"; 
-    else if (acaoNormalizada.includes("cisterna")) prefixoAcao = "cisterna";
-    else if (acaoNormalizada === "pap") prefixoAcao = "pap";
-    else if (acaoNormalizada.includes("estações meteorológicas")) prefixoAcao = "estacoes_meteorologicas";
-    else if (acaoNormalizada.includes("equipamentos de informática")) prefixoAcao = "equipamentos_de_informatica";
-    else if (acaoNormalizada.includes("campanha de educação ambiental")) prefixoAcao = "campanha_de_educacao_ambiental";
-    else if (acaoNormalizada.includes("curso em meio ambiente")) prefixoAcao = "curso_em_meio_ambiente_para_jovens";
-    else if (acaoNormalizada.includes("regularização fundiária")) prefixoAcao = "regurarizacao_fundiaria";
-    else if (acaoNormalizada.includes("reforma das unidades regionais")) prefixoAcao = "reforma_das_unidades_regionais"; 
-    else if (acaoNormalizada.includes("regularização ambiental rural")) prefixoAcao = "regularizacao_ambiental_rural"; 
+    if (acaoNormalizada.includes("reforma da nova sede da seplan") || tipoNormalizado === "obra") {
+        prefixoAcao = "reforma_da_nova_sede_da_seplan";
+    } else if (acaoNormalizada.includes("passagem molhada") || tipoNormalizado.includes("mobilidade rural")) { 
+        prefixoAcao = "construcao_de_passagem_molhada"; 
+    } else if (acaoNormalizada.includes("cisterna") || acaoNormalizada.includes("águas cinzas") || tipoNormalizado.includes("tecnologia social")) {
+        prefixoAcao = "cisterna";
+    } else if (acaoNormalizada === "pap" || acaoNormalizada === "pn" || tipoNormalizado.includes("projeto produtivo") || tipoNormalizado.includes("plano de negócios")) {
+        prefixoAcao = "pap";
+    } else if (acaoNormalizada.includes("estações meteorológicas") || acaoNormalizada.includes("meteorológica")) {
+        prefixoAcao = "estacoes_meteorologicas";
+    } else if (acaoNormalizada.includes("equipamentos de informática") || acaoNormalizada.includes("microcomputadores") || tipoNormalizado === "bens") {
+        prefixoAcao = "equipamentos_de_informatica";
+    } else if (acaoNormalizada.includes("campanha de educação ambiental")) {
+        prefixoAcao = "campanha_de_educacao_ambiental";
+    } else if (acaoNormalizada.includes("curso em meio ambiente") || tipoNormalizado.includes("capacitação")) {
+        prefixoAcao = "curso_em_meio_ambiente_para_jovens";
+    } else if (acaoNormalizada.includes("regularização fundiária") || tipoNormalizado.includes("título de regularização")) {
+        prefixoAcao = "regurarizacao_fundiaria";
+    } else if (acaoNormalizada.includes("reforma das unidades regionais")) {
+        prefixoAcao = "reforma_das_unidades_regionais"; 
+    } else if (acaoNormalizada.includes("regularização ambiental rural") || tipoNormalizado.includes("car - ano")) {
+        prefixoAcao = "regularizacao_ambiental_rural"; 
+    }
 
     let sufixoStatus = "sem_status";
     if (statusNormalizado === "concluído" || statusNormalizado === "concluido") sufixoStatus = "concluido";
@@ -77,7 +93,6 @@ function definirIcone(acao, status) {
 // 3. INICIALIZAÇÃO DE DADOS E EVENTOS
 // =========================================
 
-// CAMADA INVISÍVEL E TERRITÓRIOS
 window.dadosGlobais = { municipios: municipiosData };
 L.geoJSON(municipiosData, { style: { color: 'transparent', weight: 0, fillOpacity: 0, interactive: false } }).addTo(map);
 
@@ -90,7 +105,6 @@ const camadaTerritorios = L.geoJSON(territoriosData, {
 }).addTo(map);
 configurarBuscaMunicipios(camadaTerritorios);
 
-// BUSCANDO DADOS DA API
 fetch(URL_API_GOOGLE)
     .then(response => response.text()) 
     .then(text => {
@@ -106,8 +120,6 @@ fetch(URL_API_GOOGLE)
             });
 
             window.renderizarPontos(window.dadosCompletos);
-            
-            // CORREÇÃO: Chama a função que preenche as opções ANTES de aplicar o efeito visual
             inicializarFiltrosDinamicos();
             
         } catch (e) {
@@ -117,7 +129,6 @@ fetch(URL_API_GOOGLE)
     .catch(error => {
         console.error("Falha na conexão com a internet ou erro de rede:", error);
     });
-
 
 // =========================================
 // 4. RENDERIZAÇÃO DE PONTOS E BUSCA
@@ -172,7 +183,8 @@ window.renderizarPontos = function(lista) {
     lista.forEach((item, index) => {
         const id = "item_" + index; 
         const status = item['Status da ação'] ? item['Status da ação'].trim() : "";
-        const acaoItem = item['Ação'] ? item['Ação'].trim() : "";
+        const acaoItem = item['Objeto'] ? item['Objeto'].trim() : "";
+        const tipoContratacao = item['Tipo de contratação'] ? item['Tipo de contratação'].trim() : "";
         
         let lat, lng;
         let ehLocalizacaoAproximada = false;
@@ -204,7 +216,9 @@ window.renderizarPontos = function(lista) {
 
         if (pontoEncontrado && !isNaN(lat) && !isNaN(lng)) {
             window.todasObras[id] = item;
-            const urlIcone = definirIcone(acaoItem, status);
+            
+            const urlIcone = definirIcone(acaoItem, tipoContratacao, status);
+            
             const marker = L.marker([lat, lng], { icon: L.icon({
                 iconUrl: urlIcone, iconSize: [35, 35], iconAnchor: [17, 35], popupAnchor: [0, -35]
             })});
@@ -212,7 +226,7 @@ window.renderizarPontos = function(lista) {
             const avisoAproximado = ehLocalizacaoAproximada 
                 ? `<div style="background: #fff3cd; color: #856404; font-size: 10px; padding: 5px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ffeeba;">⚠️ Localização aproximada (Gerada Aleatória)</div>` : "";
 
-            let htmlPopup = `<div style="min-width:200px">${avisoAproximado}<h4 style="color:#0352AA; margin-bottom:5px;">${acaoItem}</h4><p style="font-size:12px"><b>Município:</b> ${item.Município}</p><button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')" style="cursor:pointer; background:#0352AA; color:white; border:none; padding:5px 10px; border-radius:4px; margin-top:5px; width:100%;">Ver Detalhes</button></div>`;
+            let htmlPopup = `<div style="min-width:200px">${avisoAproximado}<h4 style="color:#0352AA; margin-bottom:5px;">${acaoItem || 'Projeto Desconhecido'}</h4><p style="font-size:12px"><b>Município:</b> ${item.Município}</p><button class="btn-ver-mais" onclick="window.abrirDetalhesSidebar('${id}')" style="cursor:pointer; background:#0352AA; color:white; border:none; padding:5px 10px; border-radius:4px; margin-top:5px; width:100%;">Ver Detalhes</button></div>`;
             
             marker.bindPopup(htmlPopup);
             window.clusterPontos.addLayer(marker);
@@ -230,9 +244,11 @@ window.abrirDetalhesSidebar = function(id) {
     document.getElementById('sidebar-container').classList.remove('closed');
     document.querySelector('[data-target="panel-obras"]').click();
 
-    const descartar = ["ID","Código do município","Subcomponente/ Subproduto","Data de Ordem de serviço","Vigência de execution do contrato","Meta Física Planejada","Meta Física Executada","Evidência (link)", "CPF", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude"];
+    const descartar = ["ID","Código do município","Subcomponente/ Subproduto","Data de Ordem de serviço","Vigência de execution do contrato","Evidência (link)", "CPF", "Data da atualizaçao", "Responsável pelo preenchimento da informação", "Fonte das informações", "Observações / Riscos / Pendências", "Latitude", "Longitude", "Objeto"];
 
-    let html = `<h3>${p.Ação}</h3>`;
+    const tituloObra = p['Objeto'] ? p['Objeto'] : 'Ação Desconhecida';
+    let html = `<h3>${tituloObra}</h3>`;
+    
     let percVal = p['% Meta Física Executada'] ? p['% Meta Física Executada'].toString().replace('%', '').replace(',', '.') : "0";
     const perc = parseFloat(percVal) || 0;
     
@@ -254,8 +270,8 @@ function inicializarFiltrosDinamicos() {
     };
 
     preencherSelect('filtro-orgao', getUnique('Órgão Executor'));
-    preencherSelect('filtro-acao', getUnique('Ação'));
-    preencherSelect('filtro-tipo-acao', getUnique('Tipo de Ação'));
+    preencherSelect('filtro-acao', getUnique('Objeto'));
+    preencherSelect('filtro-tipo-acao', getUnique('Tipo de contratação'));
     preencherSelect('filtro-municipio', getUnique('Município'));
     preencherSelect('filtro-comunidade', getUnique('Comunidade/ Localidade'));
     preencherSelect('filtro-territorio', getUnique('Território'));
@@ -286,16 +302,25 @@ window.aplicarFiltros = function() {
     };
 
     const filtrosAtivos = {
-        'Órgão Executor': getS('filtro-orgao'), 'Ação': getS('filtro-acao'), 'Tipo de Ação': getS('filtro-tipo-acao'),
-        'Município': getS('filtro-municipio'), 'Comunidade/ Localidade': getS('filtro-comunidade'), 'Território': getS('filtro-territorio'),
-        'Componente': getS('filtro-componente'), 'Status da ação': getS('filtro-status'), 'Povos de comunidades tradicionais': getS('filtro-tradicional'), 'Gênero': getS('filtro-genero')
+        'Órgão Executor': getS('filtro-orgao'), 
+        'Objeto': getS('filtro-acao'), 
+        'Tipo de contratação': getS('filtro-tipo-acao'),
+        'Município': getS('filtro-municipio'), 
+        'Comunidade/ Localidade': getS('filtro-comunidade'), 
+        'Território': getS('filtro-territorio'),
+        'Componente': getS('filtro-componente'), 
+        'Status da ação': getS('filtro-status'), 
+        'Povos de comunidades tradicionais': getS('filtro-tradicional'), 
+        'Gênero': getS('filtro-genero')
     };
 
     const filtrados = window.dadosCompletos.filter(item => {
         return Object.keys(filtrosAtivos).every(chave => {
             const selecao = filtrosAtivos[chave];
+            if (selecao.length === 0) return true;
+            
             const valorItem = item[chave] ? item[chave].trim() : "";
-            return selecao.length === 0 || selecao.includes(valorItem);
+            return selecao.includes(valorItem);
         });
     });
 
@@ -304,11 +329,9 @@ window.aplicarFiltros = function() {
 };
 
 window.trocarCamadaBase = function(tipo) {
-    // CORREÇÃO: Aplica a animação (classe 'active') nos botões
     document.querySelectorAll('.layer-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-' + tipo).classList.add('active');
 
-    // Executa a troca real do mapa
     if (tipo === 'satelite') {
         map.removeLayer(camadasBase.mapa);
         camadasBase.satelite.addTo(map);
